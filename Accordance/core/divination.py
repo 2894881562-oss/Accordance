@@ -20,8 +20,10 @@
 import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from config.bagua_data import BAGUA_DATA
-from core.qi_context import build_qi_seed, normalize_mod
+from config.bagua_data import BAGUA_DATA, NUM_TO_GUA_NAME
+from config.hexagram_data import HEXAGRAM_DATA, HUGUA_MAP, TRIGRAM_CUO, TRIGRAM_ZONG
+from config.wuxing_rules import WUXING_SHENG, WUXING_KE
+from core.qi_context import build_qi_seed, normalize_mod, get_accurate_day_ganzhi, get_day_tiangan
 
 
 # ------------------------------------------------------------
@@ -497,12 +499,9 @@ def calculate_bian_gua(
     dong_yao = 1 为初爻；
     dong_yao = 6 为上爻。
 
-    当前内部爻序：
-    upper_yao + lower_yao
-    即上三爻 + 下三爻。
-
-    为保持与原项目逻辑一致，使用：
-    yao_index = 6 - dong_yao
+    GUA_NUM_TO_YAO 的三爻顺序为从下到上；
+    六爻内部也按初爻到上爻排列：
+    lower_yao + upper_yao。
     """
     if upper_num not in GUA_NUM_TO_YAO:
         raise ValueError(f"非法上卦编号：{upper_num}")
@@ -516,18 +515,18 @@ def calculate_bian_gua(
     upper_yao = list(GUA_NUM_TO_YAO[upper_num])
     lower_yao = list(GUA_NUM_TO_YAO[lower_num])
 
-    all_yao = upper_yao + lower_yao
+    all_yao = lower_yao + upper_yao
 
-    yao_index = 6 - dong_yao
+    yao_index = dong_yao - 1
     all_yao[yao_index] = 1 - all_yao[yao_index]
 
-    bian_upper_yao: YaoTuple = (
+    bian_lower_yao: YaoTuple = (
         int(all_yao[0]),
         int(all_yao[1]),
         int(all_yao[2]),
     )
 
-    bian_lower_yao: YaoTuple = (
+    bian_upper_yao: YaoTuple = (
         int(all_yao[3]),
         int(all_yao[4]),
         int(all_yao[5]),
@@ -571,22 +570,160 @@ def get_ganzhi_wuxing(ganzhi: str) -> str:
 
 def get_day_ganzhi(lunar_info: Dict[str, Any]) -> str:
     """
-    简易日干支。
+    基于儒略日的精确日干支计算。
 
-    用于兼容旧接口。
-    当前算法为简化推算，不作为严格万年历依据。
+    代替之前的简化推算，精度与万年历一致。
     """
     solar = lunar_info.get("solar")
 
     if not isinstance(solar, datetime.datetime):
         solar = datetime.datetime.now()
 
-    base_date = datetime.datetime(1900, 1, 31)
-    delta_days = (solar - base_date).days
+    return get_accurate_day_ganzhi(solar)
 
-    gan = GAN_ORDER[(delta_days + 6) % 10]
-    zhi = DIZHI_ORDER[delta_days % 12]
 
-    return f"{gan}{zhi}"
+# ------------------------------------------------------------
+# 互卦、错卦、综卦计算
+# ------------------------------------------------------------
 
+def calculate_hugua(upper_num: int, lower_num: int) -> Tuple[int, int]:
+    """
+    计算互卦（交互卦/卦中卦）。
+
+    取本卦第二、三、四爻为下卦，第三、四、五爻为上卦。
+    互卦揭示事情发展的中间过程与隐藏因素。
+
+    返回：
+        (hu_upper_num, hu_lower_num): 互卦上下卦编号
+    """
+    if (upper_num, lower_num) in HUGUA_MAP:
+        return HUGUA_MAP[(upper_num, lower_num)]
+    return upper_num, lower_num
+
+
+def calculate_cuogua(upper_num: int, lower_num: int) -> Tuple[int, int]:
+    """
+    计算错卦（旁通卦/对卦）。
+
+    将六爻卦中每一爻的阴阳属性全部取反。
+    错卦代表事物向其对立面转化，从相反角度审视问题。
+
+    返回：
+        (cuo_upper_num, cuo_lower_num): 错卦上下卦编号
+    """
+    if upper_num in TRIGRAM_CUO:
+        cuo_upper = TRIGRAM_CUO[upper_num]
+    else:
+        cuo_upper = upper_num
+
+    if lower_num in TRIGRAM_CUO:
+        cuo_lower = TRIGRAM_CUO[lower_num]
+    else:
+        cuo_lower = lower_num
+
+    return cuo_upper, cuo_lower
+
+
+def calculate_zonggua(upper_num: int, lower_num: int) -> Tuple[int, int]:
+    """
+    计算综卦（覆卦/反卦）。
+
+    将本卦上下颠倒180度。
+    综卦代表换位思考，从对方立场审视同一事物。
+
+    八纯卦中的自综卦：乾、坤、离、坎、大过、小过、颐、中孚
+    这些卦颠倒后仍为自身。
+
+    返回：
+        (zong_upper_num, zong_lower_num): 综卦上下卦编号
+    """
+    # 综卦：上卦颠倒为下卦，下卦颠倒为上卦
+    if upper_num in TRIGRAM_ZONG:
+        zong_lower = TRIGRAM_ZONG[upper_num]
+    else:
+        zong_lower = upper_num
+
+    if lower_num in TRIGRAM_ZONG:
+        zong_upper = TRIGRAM_ZONG[lower_num]
+    else:
+        zong_upper = lower_num
+
+    return zong_upper, zong_lower
+
+
+# ------------------------------------------------------------
+# 体用识别（梅花易数）
+# ------------------------------------------------------------
+
+def identify_tiyong(upper_num: int, lower_num: int, dong_yao: int) -> Dict[str, Any]:
+    """
+    梅花易数体用识别。
+
+    规则：
+    - 动爻在上卦（第4/5/6爻）→ 用卦在上卦，体卦在下卦
+    - 动爻在下卦（第1/2/3爻）→ 用卦在下卦，体卦在上卦
+
+    体卦代表求测者本人，用卦代表所问之事/对方/外部环境。
+
+    返回：
+        dict: {
+            "ti_gua_num": int,        # 体卦编号
+            "yong_gua_num": int,      # 用卦编号
+            "ti_gua_name": str,       # 体卦名称
+            "yong_gua_name": str,     # 用卦名称
+            "ti_element": str,        # 体卦五行
+            "yong_element": str,      # 用卦五行
+            "relation": str,          # 体用关系（用生体/体克用/比和/体生用/用克体）
+            "relation_desc": str,     # 关系描述
+        }
+    """
+    if dong_yao >= 4:
+        # 动爻在上卦 → 上卦为用，下卦为体
+        yong_num = upper_num
+        ti_num = lower_num
+    else:
+        # 动爻在下卦 → 下卦为用，上卦为体
+        yong_num = lower_num
+        ti_num = upper_num
+
+    ti_gua = BAGUA_DATA[ti_num]
+    yong_gua = BAGUA_DATA[yong_num]
+
+    ti_element = ti_gua["element"]
+    yong_element = yong_gua["element"]
+
+    # 判断体用五行关系
+    relation = ""
+    relation_desc = ""
+
+    if WUXING_SHENG.get(yong_element) == ti_element:
+        relation = "用生体"
+        relation_desc = "大吉：外界助我，好事送上门，有进益之喜，不费力可成"
+    elif ti_element == yong_element:
+        relation = "比和"
+        relation_desc = "吉利：五行相同，百事顺遂，势均力敌，顺利和乐"
+    elif WUXING_KE.get(ti_element) == yong_element:
+        relation = "体克用"
+        relation_desc = "小吉（吉带凶）：我方掌控局面，辛苦费力但能成事"
+    elif WUXING_SHENG.get(ti_element) == yong_element:
+        relation = "体生用"
+        relation_desc = "小凶（泄气）：自己耗心力、为他人作嫁衣，付出多、有损耗"
+    elif WUXING_KE.get(yong_element) == ti_element:
+        relation = "用克体"
+        relation_desc = "大凶：受人牵制，被动挨打，诸事难成，有损耗"
+
+    return {
+        "ti_gua_num": ti_num,
+        "yong_gua_num": yong_num,
+        "ti_gua_name": ti_gua["name"],
+        "yong_gua_name": yong_gua["name"],
+        "ti_gua_full": ti_gua["full_name"],
+        "yong_gua_full": yong_gua["full_name"],
+        "ti_element": ti_element,
+        "yong_element": yong_element,
+        "relation": relation,
+        "relation_desc": relation_desc,
+        "ti_gua_data": ti_gua,
+        "yong_gua_data": yong_gua,
+    }
 

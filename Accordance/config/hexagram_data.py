@@ -1212,3 +1212,62 @@ def print_hexagram_data_check():
         print("状态：不完整。")
         print(f"缺失组合：{missing_keys}")
     print("=" * 70)
+
+
+# ------------------------------------------------------------
+# 八纯卦自综卦（颠倒后不变的卦）：乾、坤、离、坎、大过、小过、颐、中孚
+# ------------------------------------------------------------
+SELF_ZONG_HEXAGRAMS = {
+    (1, 1),   # 乾为天
+    (8, 8),   # 坤为地
+    (3, 3),   # 离为火
+    (6, 6),   # 坎为水
+    (2, 5),   # 泽风大过
+    (4, 7),   # 雷山小过
+    (7, 4),   # 山雷颐
+    (5, 2),   # 风泽中孚
+}
+
+# 八纯卦自错卦（全反后不变的卦）：无（64卦中每卦的错卦都是另一卦）
+# 注：错卦即全卦阴阳反转，乾↔坤、坎↔离、震↔巽、艮↔兑
+# 六十四卦的错卦关系：(上卦错, 下卦错)
+# 八经卦错卦映射
+TRIGRAM_CUO = {1: 8, 8: 1, 2: 7, 7: 2, 3: 6, 6: 3, 4: 5, 5: 4}
+# 八经卦综卦映射（颠倒）
+TRIGRAM_ZONG = {1: 1, 8: 8, 2: 5, 5: 2, 3: 3, 6: 6, 4: 7, 7: 4}
+
+# 八八六十四卦互卦速查表（预计算）
+# 互卦算法：取本卦二三四爻为下卦，三四五爻为上卦
+def _build_hugua_map():
+    """构建64卦互卦映射表"""
+    from config.bagua_data import NUM_TO_GUA_NAME
+    hugua_map = {}
+    # 八经卦三爻映射
+    trigram_yao = {
+        1: (1, 1, 1), 2: (1, 1, 0), 3: (1, 0, 1), 4: (1, 0, 0),
+        5: (0, 1, 1), 6: (0, 1, 0), 7: (0, 0, 1), 8: (0, 0, 0),
+    }
+    yao_to_trigram = {v: k for k, v in trigram_yao.items()}
+
+    for upper_num in range(1, 9):
+        for lower_num in range(1, 9):
+            upper_yao = trigram_yao[upper_num]
+            lower_yao = trigram_yao[lower_num]
+            # 六爻映射：
+            # upper_yao = (四爻, 五爻, 上爻) 从下到上
+            # lower_yao = (初爻, 二爻, 三爻) 从下到上
+            # all_yao = [四爻, 五爻, 上爻, 初爻, 二爻, 三爻]
+            #           [0]    [1]    [2]   [3]   [4]   [5]
+            all_yao = list(upper_yao) + list(lower_yao)
+            # 互卦下卦（取2/3/4爻，从下到上排序）：
+            #   底=二爻=all_yao[4], 中=三爻=all_yao[5], 顶=四爻=all_yao[0]
+            hu_lower = (all_yao[4], all_yao[5], all_yao[0])
+            # 互卦上卦（取3/4/5爻，从下到上排序）：
+            #   底=三爻=all_yao[5], 中=四爻=all_yao[0], 顶=五爻=all_yao[1]
+            hu_upper = (all_yao[5], all_yao[0], all_yao[1])
+            hu_upper_num = yao_to_trigram.get(hu_upper, 8)
+            hu_lower_num = yao_to_trigram.get(hu_lower, 8)
+            hugua_map[(upper_num, lower_num)] = (hu_upper_num, hu_lower_num)
+    return hugua_map
+
+HUGUA_MAP = _build_hugua_map()

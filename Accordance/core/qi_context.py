@@ -18,6 +18,174 @@
 
 import time
 import datetime
+import math
+
+
+# ------------------------------------------------------------
+# 精确日干支计算（儒略日法）
+# ------------------------------------------------------------
+
+# 六十甲子表
+JIAZI_TABLE = [
+    "甲子", "乙丑", "丙寅", "丁卯", "戊辰", "己巳", "庚午", "辛未",
+    "壬申", "癸酉", "甲戌", "乙亥", "丙子", "丁丑", "戊寅", "己卯",
+    "庚辰", "辛巳", "壬午", "癸未", "甲申", "乙酉", "丙戌", "丁亥",
+    "戊子", "己丑", "庚寅", "辛卯", "壬辰", "癸巳", "甲午", "乙未",
+    "丙申", "丁酉", "戊戌", "己亥", "庚子", "辛丑", "壬寅", "癸卯",
+    "甲辰", "乙巳", "丙午", "丁未", "戊申", "己酉", "庚戌", "辛亥",
+    "壬子", "癸丑", "甲寅", "乙卯", "丙辰", "丁巳", "戊午", "己未",
+    "庚申", "辛酉", "壬戌", "癸亥",
+]
+
+
+def _gregorian_to_jd(year, month, day):
+    """
+    公历日期转儒略日（Julian Day）。
+
+    使用标准天文算法，适用于公元后的日期。
+    精度足以支撑日干支计算。
+    """
+    if month <= 2:
+        year -= 1
+        month += 12
+
+    a = year // 100
+    b = 2 - a + a // 4
+
+    jd = int(365.25 * (year + 4716)) + int(30.6001 * (month + 1)) + day + b - 1524.5
+    return int(jd)
+
+
+def get_accurate_day_ganzhi(solar=None):
+    """
+    基于儒略日的高精度日干支计算。
+
+    参数：
+        solar: datetime.datetime 对象，默认为当前时间
+
+    返回：
+        str: 六十甲子日柱（如"甲子"、"乙丑"等）
+
+    算法：
+        以1900年1月1日（甲戌日）为基准日，
+        计算目标日期与基准日之间的天数差，
+        通过 mod 60 得到六十甲子序数。
+    """
+    if solar is None:
+        solar = datetime.datetime.now()
+
+    target_jd = _gregorian_to_jd(solar.year, solar.month, solar.day)
+    base_jd = _gregorian_to_jd(1900, 1, 1)
+
+    delta_days = target_jd - base_jd
+
+    # 1900年1月1日为甲戌日，序数为10
+    jiazi_index = (delta_days + 10) % 60
+    return JIAZI_TABLE[jiazi_index]
+
+
+def get_day_tiangan(solar=None):
+    """
+    获取当日天干。
+
+    返回：
+        str: 天干（甲、乙、丙、丁、戊、己、庚、辛、壬、癸）
+    """
+    ganzhi = get_accurate_day_ganzhi(solar)
+    return ganzhi[0]
+
+
+def get_day_dizhi(solar=None):
+    """
+    获取当日地支。
+
+    返回：
+        str: 地支（子、丑、寅、卯、辰、巳、午、未、申、酉、戌、亥）
+    """
+    ganzhi = get_accurate_day_ganzhi(solar)
+    return ganzhi[1]
+
+
+def get_xunkong(day_ganzhi=None, solar=None):
+    """
+    计算旬空（空亡）。
+
+    六十甲子每十日为一旬，每旬余下两个地支为空亡：
+    甲子旬戌亥空，甲戌旬申酉空，甲申旬午未空，
+    甲午旬辰巳空，甲辰旬寅卯空，甲寅旬子丑空。
+    """
+    if day_ganzhi is None:
+        day_ganzhi = get_accurate_day_ganzhi(solar)
+
+    if day_ganzhi not in JIAZI_TABLE:
+        return {
+            "day_ganzhi": day_ganzhi,
+            "xun_name": "未知旬",
+            "empty_branches": [],
+        }
+
+    index = JIAZI_TABLE.index(day_ganzhi)
+    xun_index = index // 10
+    xun_names = ["甲子旬", "甲戌旬", "甲申旬", "甲午旬", "甲辰旬", "甲寅旬"]
+    xunkong_map = [
+        ["戌", "亥"],
+        ["申", "酉"],
+        ["午", "未"],
+        ["辰", "巳"],
+        ["寅", "卯"],
+        ["子", "丑"],
+    ]
+
+    return {
+        "day_ganzhi": day_ganzhi,
+        "xun_name": xun_names[xun_index],
+        "empty_branches": xunkong_map[xun_index],
+    }
+
+
+def get_year_ganzhi(year):
+    """
+    年干支计算（以立春为界做近似处理）。
+
+    以1984年（甲子年）为基准推算。
+    精确分界需要节气计算，这里提供近似值。
+    """
+    base_year = 1984
+    diff = year - base_year
+    index = diff % 60
+    return JIAZI_TABLE[index]
+
+
+def get_shichen_ganzhi(day_tiangan, shichen_num):
+    """
+    根据日天干和时辰序号计算时干支。
+
+    口诀：甲己还加甲，乙庚丙作初，丙辛从戊起，丁壬庚子居，戊癸何方发，壬子是真途。
+
+    参数：
+        day_tiangan: 日天干
+        shichen_num: 时辰序号（子=1, 丑=2, ..., 亥=12）
+
+    返回：
+        str: 时干支
+    """
+    shichen_start_map = {
+        "甲": "甲", "己": "甲",
+        "乙": "丙", "庚": "丙",
+        "丙": "戊", "辛": "戊",
+        "丁": "庚", "壬": "庚",
+        "戊": "壬", "癸": "壬",
+    }
+
+    start_gan = shichen_start_map.get(day_tiangan, "甲")
+    gan_list = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"]
+    zhi_list = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
+
+    start_index = gan_list.index(start_gan)
+    gan_index = (start_index + shichen_num - 1) % 10
+    zhi_index = (shichen_num - 1) % 12
+
+    return f"{gan_list[gan_index]}{zhi_list[zhi_index]}"
 
 
 def text_to_seed(text):

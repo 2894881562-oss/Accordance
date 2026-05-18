@@ -3,7 +3,9 @@
 
 from core.divination import dynamic_three_yao_quick_divination
 from core.interpretation import interpret_three_yao
-from core.qi_context import collect_focus_seed
+from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
+from config.bagua_data import BAGUA_DATA, GUA_TO_ELEMENT
+from config.wuxing_rules import WUXING_SHENG, WUXING_KE
 
 
 def print_separator():
@@ -97,6 +99,24 @@ def generate_item_specific_tip(item_name, last_place, item_feature, gua_info):
     if any(w in item_text_lower for w in ["u盘", "usb", "硬盘", "内存卡", "数据线"]):
         tips.append("该物品体积小，易落入缝隙或夹层，重点查电脑旁、包内夹层、桌缝、文件袋。")
 
+    if any(w in item_text_lower for w in ["钱包", "卡包", "银行卡", "身份证", "证件", "护照", "校园卡"]):
+        tips.append("该物品常与随身出入路线相关，重点查外套口袋、裤袋、包内夹层、门口柜、最近付款或登记位置。")
+
+    if any(w in item_text_lower for w in ["书", "本子", "笔记", "资料", "文件", "合同", "发票", "纸"]):
+        tips.append("该物品属文书纸张类，优先查书桌、书架、文件夹、书本夹层、打印机旁和最近阅读位置。")
+
+    if any(w in item_text_lower for w in ["药", "药盒", "药瓶", "维生素", "创可贴", "口罩"]):
+        tips.append("该物品属医药小件，重点查床头、抽屉、包内侧袋、卫生间、常备药盒和外出随身袋。")
+
+    if any(w in item_text_lower for w in ["衣服", "外套", "帽子", "围巾", "手套", "袜子"]):
+        tips.append("该物品属衣物柔软类，重点查床铺、衣柜、洗衣篮、椅背、沙发、门口挂衣处。")
+
+    if any(w in item_text_lower for w in ["化妆", "口红", "粉饼", "镜子", "梳子", "发夹"]):
+        tips.append("该物品常在梳洗或出门准备位置，优先查洗手台、化妆包、镜子旁、包内小袋和桌面边角。")
+
+    if any(w in item_text_lower for w in ["遥控器", "鼠标", "手柄", "充电器", "插头", "耳麦"]):
+        tips.append("该物品常被顺手放在使用设备附近，重点查沙发缝、桌面、电视/电脑旁、插座附近和线缆下方。")
+
     if any(w in item_text_lower for w in ["宿舍", "房间", "卧室"]):
         tips.append("最后位置在居住空间，建议按：床铺 → 桌面 → 椅子 → 衣物 → 包 → 地面角落 的顺序排查。")
 
@@ -113,14 +133,14 @@ def generate_item_specific_tip(item_name, last_place, item_feature, gua_info):
         tips.append("物品颜色偏黑，与坎象相近，优先查暗处、黑色包、阴影区域和低处。")
 
     gua_tips = {
-        "兑": "当前得兑象，尤其要查“开口、盒盖、包口、口袋、抽屉口、桌边”这些位置。",
-        "坎": "当前得坎象，尤其要查“低处、暗处、黑色物体旁、水杯或洗漱区附近”。",
-        "艮": "当前得艮象，尤其要查“墙角、柜边、固定家具旁、被压住或被挡住的位置”。",
-        "离": "当前得离象，尤其要查“电器、灯光、屏幕、充电线、文件和显眼处”。",
-        "巽": "当前得巽象，尤其要查“夹层、缝隙、线缆旁、书本之间、包内侧”。",
-        "震": "当前得震象，尤其要沿最近行动路线回溯，查刚移动过、刚拿过、刚经过的位置。",
-        "坤": "当前得坤象，尤其要查“衣物、被褥、包裹、收纳盒、地面、被覆盖处”。",
-        "乾": "当前得乾象，尤其要查“高处、架子上、金属物旁、贵重物集中处”。",
+        "兑": '当前得兑象，尤其要查"开口、盒盖、包口、口袋、抽屉口、桌边"这些位置。',
+        "坎": '当前得坎象，尤其要查"低处、暗处、黑色物体旁、水杯或洗漱区附近"。',
+        "艮": '当前得艮象，尤其要查"墙角、柜边、固定家具旁、被压住或被挡住的位置"。',
+        "离": '当前得离象，尤其要查"电器、灯光、屏幕、充电线、文件和显眼处"。',
+        "巽": '当前得巽象，尤其要查"夹层、缝隙、线缆旁、书本之间、包内侧"。',
+        "震": '当前得震象，尤其要沿最近行动路线回溯，查刚移动过、刚拿过、刚经过的位置。',
+        "坤": '当前得坤象，尤其要查"衣物、被褥、包裹、收纳盒、地面、被覆盖处"。',
+        "乾": '当前得乾象，尤其要查"高处、架子上、金属物旁、贵重物集中处"。',
     }
     if gua_name in gua_tips:
         tips.append(gua_tips[gua_name])
@@ -133,25 +153,50 @@ def generate_item_specific_tip(item_name, last_place, item_feature, gua_info):
     return tips
 
 
+def get_recovery_likelihood(gua_info):
+    """
+    根据卦象判断寻回概率。
+
+    用体用生克逻辑：
+    - 卦象五行当季旺相者，寻回概率较高
+    - 得生扶者易找回
+    - 受克制者难找回
+    """
+    element = gua_info["element"]
+    # 简单判断：卦象本身的五行属性影响
+    likelihood_tips = {
+        "乾": "贵重或金属物品找回概率较高，易在显眼处发现",
+        "兑": "物品可能在开口容器或盒盖附近，有较大希望找回",
+        "离": "明处或电器旁找回概率较高，但需仔细翻找",
+        "震": "物品可能被移动过，沿活动路线回溯有希望",
+        "巽": "物品可能在缝隙或夹层中，需耐心仔细搜索",
+        "坎": "物品可能在暗处或被遮挡处，找回有一定难度",
+        "艮": "物品可能被卡住或压住，需移动遮挡物才能发现",
+        "坤": "物品可能被覆盖或被收纳，耐心翻找有希望",
+    }
+    return likelihood_tips.get(gua_info["name"], "建议结合方位提示耐心寻找")
+
+
 def run_item_search():
     print_separator()
     print("【寻物专项占】")
     print("说明：本功能适合寻找大概率仍在身边小范围内的物品。")
     print("例如：房间、宿舍、桌面、书包、实验室、办公室、小区附近等。")
     print("若物品已经遗失在大范围公共区域，本结果只能作为启发参考。")
-    print("当前版本采用“物品名 + 最后位置 + 物品特征 + 人念 + 起卦瞬间”的动态寻物法。")
+    print("当前版本采用动态寻物法 + 卦象五行寻回概率分析。")
     print_separator()
 
     item_name = input("请输入要寻找的物品名称：").strip() or "目标物品"
     last_place = input("请输入最后一次见到它的大概位置，可直接回车跳过：").strip() or "未提供最后位置"
     item_feature = input("请输入该物品的主要特征，可直接回车跳过：").strip() or "未提供物品特征"
+    external_omen = input("若起卦前后有明显外应请输入，无则回车：").strip()
 
     print("\n请静心回想最后一次见到该物品的位置。")
     print("专注于该物品的形状、颜色、用途、最后一次使用场景。")
     focus_info = collect_focus_seed("准备好后，按回车键开始起卦...")
 
     question_text = f"寻找{item_name}"
-    extra_text = f"{item_name}|{last_place}|{item_feature}"
+    extra_text = f"{item_name}|{last_place}|{item_feature}|外应:{external_omen}"
 
     three_yao_info = dynamic_three_yao_quick_divination(
         question=question_text,
@@ -159,11 +204,13 @@ def run_item_search():
         extra_text=extra_text,
         focus_seed=focus_info["focus_seed"],
     )
+    three_yao_info["external_omen"] = external_omen
     interpret_result = interpret_three_yao(three_yao_info)
     gua_info = three_yao_info["gua_info"]
     gua_name = gua_info["name"]
     search_hint = get_item_search_hint(gua_name)
     item_tips = generate_item_specific_tip(item_name, last_place, item_feature, gua_info)
+    recovery_tip = get_recovery_likelihood(gua_info)
 
     print_separator()
     print(f"【寻物目标】：{item_name}")
@@ -174,6 +221,14 @@ def run_item_search():
     print("【寻物卦象】")
     print(interpret_result["core_tip"])
     print(interpret_result["meaning_tip"])
+    if interpret_result.get("tiyong_note"):
+        print(interpret_result["tiyong_note"])
+    if interpret_result.get("single_tiyong_tip"):
+        print(interpret_result["single_tiyong_tip"])
+
+    print_separator()
+    print("【寻回概率参考】")
+    print(recovery_tip)
 
     print_separator()
     print("【基础定位信息】")
@@ -196,9 +251,14 @@ def run_item_search():
 
     print_separator()
     print("【气机信息】")
+    print(f"日干支：{get_accurate_day_ganzhi()}")
     print(f"人念停顿：{focus_info['focus_seconds']:.3f} 秒")
     print(f"气机种子：{three_yao_info['qi_seed']}")
     print(f"三爻结果：{three_yao_info['yao_list']}")
+
+    print_separator()
+    print("【外应参考（梅花克应）】")
+    print(interpret_result["external_omen_tip"])
 
     print_separator()
     print("【实际寻找步骤】")
