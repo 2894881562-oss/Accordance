@@ -12,6 +12,7 @@
 from core.divination import dynamic_time_qi_gua
 from core.interpretation import interpret_hexagram
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
+from core.question_history import handle_duplicate_check, record_question
 
 
 def print_separator():
@@ -33,6 +34,10 @@ def run_full_divination():
     if not question:
         question = "未命名问题"
 
+    should_proceed, question = handle_duplicate_check(question, "六爻详占")
+    if not should_proceed:
+        return
+
     external_omen = input("若起卦前后有明显外应（声音、言语、物象、突发事件等）请输入，无则回车：").strip()
 
     focus_info = collect_focus_seed(
@@ -48,6 +53,12 @@ def run_full_divination():
     hexagram_info["external_omen"] = external_omen
 
     interpret_result = interpret_hexagram(hexagram_info)
+
+    record_question(
+        question, "六爻详占",
+        f"{interpret_result['gua_name']}（{interpret_result['ji_xiong']}），"
+        f"体用：{interpret_result.get('tiyong_info', {}).get('relation', '未知')}"
+    )
 
     # ========== 卦象基本 ==========
     print_separator()

@@ -4,6 +4,7 @@
 from core.divination import dynamic_three_yao_quick_divination
 from core.interpretation import interpret_three_yao
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
+from core.question_history import handle_duplicate_check, record_question
 from config.bagua_data import BAGUA_DATA, GUA_TO_ELEMENT
 from config.wuxing_rules import WUXING_SHENG, WUXING_KE
 
@@ -196,6 +197,11 @@ def run_item_search():
     focus_info = collect_focus_seed("准备好后，按回车键开始起卦...")
 
     question_text = f"寻找{item_name}"
+
+    should_proceed, question_text = handle_duplicate_check(question_text, "寻物专项占")
+    if not should_proceed:
+        return
+
     extra_text = f"{item_name}|{last_place}|{item_feature}|外应:{external_omen}"
 
     three_yao_info = dynamic_three_yao_quick_divination(
@@ -206,6 +212,14 @@ def run_item_search():
     )
     three_yao_info["external_omen"] = external_omen
     interpret_result = interpret_three_yao(three_yao_info)
+
+    record_question(
+        question_text, "寻物专项占",
+        f"得{three_yao_info['gua_info']['name']}卦，"
+        f"{three_yao_info['gua_info']['element']}性，"
+        f"方位{three_yao_info['gua_info']['position']}"
+    )
+
     gua_info = three_yao_info["gua_info"]
     gua_name = gua_info["name"]
     search_hint = get_item_search_hint(gua_name)

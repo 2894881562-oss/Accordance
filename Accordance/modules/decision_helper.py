@@ -17,6 +17,7 @@ from config.bagua_data import BAGUA_DATA
 from core.divination import get_lunar_time, identify_tiyong, calculate_hugua
 from core.interpretation import interpret_hexagram
 from core.qi_context import get_accurate_day_ganzhi
+from core.question_history import handle_duplicate_check, record_question
 
 
 def print_separator():
@@ -318,6 +319,11 @@ def run_decision_helper():
 
     if not question:
         question = "未命名问题"
+
+    should_proceed, question = handle_duplicate_check(question, "二选一决策")
+    if not should_proceed:
+        return
+
     if not option_a:
         option_a = "选项A"
     if not option_b:
@@ -343,6 +349,12 @@ def run_decision_helper():
     result_b = interpret_hexagram(hexagram_b)
     score_b = calculate_option_score(result_b)
     result_b["_score"] = score_b
+
+    record_question(
+        question, "二选一决策",
+        f"A「{option_a}」→ {result_a['gua_name']}（{result_a['ji_xiong']}），"
+        f"B「{option_b}」→ {result_b['gua_name']}（{result_b['ji_xiong']}）"
+    )
 
     print_option_result("选项A", option_a, result_a)
     print_option_result("选项B", option_b, result_b)

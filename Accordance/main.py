@@ -15,6 +15,7 @@ from modules.name_divination import run_name_divination
 from modules.daily_fortune import run_daily_fortune
 from modules.item_search import run_item_search
 from modules.decision_helper import run_decision_helper
+from core.question_history import show_history
 
 
 def print_separator():
@@ -41,6 +42,7 @@ def main_menu():
     print("4. 当日气运指引")
     print("5. 寻物专项占")
     print("6. 二选一决策辅助")
+    print("7. 查看近期起卦记录")
     print("0. 退出系统")
 
     print_separator()
@@ -78,6 +80,9 @@ def main():
 
         elif choice == "6":
             run_decision_helper()
+
+        elif choice == "7":
+            show_history()
 
         else:
             print("输入错误，请重新选择！")
