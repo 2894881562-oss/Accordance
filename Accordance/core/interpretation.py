@@ -16,6 +16,8 @@ from config.yijing_philosophy import (
     HUMAN_AGENCY_REMINDER,
 )
 from config.daxiang_data import get_daxiang
+from config.tuanzhuan_data import get_tuanzhuan
+from config.shensha_data import analyze_shensha_summary
 from core.divination import (
     calculate_bian_gua, calculate_hugua, calculate_cuogua,
     calculate_zonggua, identify_tiyong,
@@ -29,7 +31,7 @@ from core.zhuanggua import (
     analyze_line_strength_summary, analyze_bian_line_relation,
     build_traditional_evidence_chain,
     analyze_dong_yao_pattern, analyze_hexagram_liuhe_liuchong,
-    select_primary_yongshen,
+    select_primary_yongshen, analyze_guashen,
 )
 
 
@@ -709,6 +711,15 @@ def interpret_hexagram(hexagram_info):
     # ── 大象传 ──
     daxiang_data = get_daxiang(hexagram_detail["name"])
 
+    # ── 彖传 ──
+    tuanzhuan_data = get_tuanzhuan(hexagram_detail["name"])
+
+    # ── 卦身 ──
+    guashen_analysis = analyze_guashen(zhuanggua_result)
+
+    # ── 神煞 ──
+    shensha_analysis = analyze_shensha_summary(zhuanggua_result)
+
     # 世爻六亲
     shishen_liuqin = get_shishen_liuqin(zhuanggua_result)
     shishen_info = LIUQIN_XIANGYI.get(shishen_liuqin, {})
@@ -783,6 +794,16 @@ def interpret_hexagram(hexagram_info):
         "daxiang": daxiang_data["daxiang"],
         "daxiang_shangxia": daxiang_data["shangxia_xiang"],
         "daxiang_junzi": daxiang_data["junzi_jiao"],
+        # 彖传
+        "tuanzhuan": tuanzhuan_data["tuanzhuan"],
+        "tuanzhuan_core": tuanzhuan_data["core_idea"],
+        # 卦身
+        "guashen_analysis": guashen_analysis,
+        "guashen_summary": guashen_analysis["summary"],
+        # 神煞
+        "shensha_analysis": shensha_analysis,
+        "shensha_summary": shensha_analysis["summary"],
+        "shensha_key_hints": shensha_analysis["key_hints"],
         "naja_analysis": zhuanggua_table,
         "naja_info": zhuanggua_result,
         "decision_suggest": specific_judgment["conclusion"],

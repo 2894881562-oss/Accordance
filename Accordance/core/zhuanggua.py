@@ -1294,32 +1294,52 @@ def analyze_line_strength_summary(zhuanggua_result):
 
 
 def _analyze_jin_tui_shen(original_dizhi, changed_dizhi):
-    """判断进神或退神。
+    """判断进神或退神（据《卜筮正宗·进神退神章》）。
 
-    进神：同一五行地支按顺序递增（如寅→卯，申→酉）
-    退神：同一五行地支按顺序递减（如卯→寅，酉→申）
-    地支序：寅1卯2 巳3午4 申5酉6 亥7子8 辰9戌9丑9未9
+    十二地支同五行进退规则：
+    木：寅→卯进神，卯→寅退神
+    火：巳→午进神，午→巳退神
+    金：申→酉进神，酉→申退神
+    水：亥→子进神，子→亥退神
+    土：丑→辰→未→戌→丑（循环）
+        丑→辰进神、辰→未进神、未→戌进神、戌→丑进神
+        辰→丑退神、未→辰退神、戌→未退神、丑→戌退神
+        注意：辰戌相冲、丑未相冲，互化时不按进退论，按反吟论
+
+    吉事化进则吉，吉事化退则凶；凶事化退则吉，凶事化进则凶。
     """
     if not original_dizhi or not changed_dizhi:
         return None
 
-    # 同五行地支组
-    same_element_groups = [
-        (["寅", "卯"], "木"),  # 木：寅→卯进神
-        (["巳", "午"], "火"),  # 火：巳→午进神
-        (["申", "酉"], "金"),  # 金：申→酉进神
-        (["亥", "子"], "水"),  # 水：亥→子进神
-        (["辰", "戌", "丑", "未"], "土"),  # 土四库
-    ]
+    # 同五行地支组（按进神顺序排列）
+    jin_shen_groups = {
+        ("寅", "卯"): ("木", "进神"),
+        ("卯", "寅"): ("木", "退神"),
+        ("巳", "午"): ("火", "进神"),
+        ("午", "巳"): ("火", "退神"),
+        ("申", "酉"): ("金", "进神"),
+        ("酉", "申"): ("金", "退神"),
+        ("亥", "子"): ("水", "进神"),
+        ("子", "亥"): ("水", "退神"),
+        # 土四库循环（丑→辰→未→戌→丑）
+        ("丑", "辰"): ("土", "进神"),
+        ("辰", "未"): ("土", "进神"),
+        ("未", "戌"): ("土", "进神"),
+        ("戌", "丑"): ("土", "进神"),
+        ("辰", "丑"): ("土", "退神"),
+        ("未", "辰"): ("土", "退神"),
+        ("戌", "未"): ("土", "退神"),
+        ("丑", "戌"): ("土", "退神"),
+        # 辰戌、丑未互化 → 非进退，乃相冲（反吟）
+    }
 
-    for group, element in same_element_groups:
-        if original_dizhi in group and changed_dizhi in group:
-            o_idx = group.index(original_dizhi)
-            c_idx = group.index(changed_dizhi)
-            if c_idx > o_idx:
-                return f"进神（{original_dizhi}→{changed_dizhi}，{element}气渐进，事有发展壮大之势）"
-            elif c_idx < o_idx:
-                return f"退神（{original_dizhi}→{changed_dizhi}，{element}气渐退，事有收缩消退之势）"
+    key = (original_dizhi, changed_dizhi)
+    if key in jin_shen_groups:
+        element, jt_type = jin_shen_groups[key]
+        if "进神" in jt_type:
+            return f"化进神（{original_dizhi}→{changed_dizhi}，{element}气渐进，事有发展壮大之势）"
+        else:
+            return f"化退神（{original_dizhi}→{changed_dizhi}，{element}气渐退，事有收缩消退之势）"
 
     return None
 
@@ -1626,3 +1646,170 @@ def analyze_hexagram_liuhe_liuchong(hexagram_name):
         }
 
     return None
+
+
+# ------------------------------------------------------------
+# 15. 卦身计算（月卦身 & 世身）
+# ------------------------------------------------------------
+
+DIZHI_ORDER_FOR_GUASHEN = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
+
+
+def calculate_yue_guashen(shi_position, shi_is_yang):
+    """
+    计算月卦身。
+
+    口诀：阴世则从午月起，阳世还从子月生。
+         欲得识其卦中意，从初数至世方真。
+
+    规则：
+    - 世爻为阳爻 → 从初爻起子，顺数至世爻位
+    - 世爻为阴爻 → 从初爻起午，顺数至世爻位
+
+    参数：
+        shi_position: 世爻位置 (1-6)
+        shi_is_yang: 世爻是否为阳爻
+
+    返回：
+        str: 卦身地支
+    """
+    if shi_is_yang:
+        start_dizhi = "子"
+    else:
+        start_dizhi = "午"
+
+    start_idx = DIZHI_ORDER_FOR_GUASHEN.index(start_dizhi)
+    target_idx = (start_idx + shi_position - 1) % 12
+    return DIZHI_ORDER_FOR_GUASHEN[target_idx]
+
+
+def calculate_shi_shen(shi_dizhi):
+    """
+    计算世身（世爻地支对应的爻位）。
+
+    口诀：
+    子午持世身居初，丑未持世身居二，
+    寅申持世身居三，卯酉持世身居四，
+    辰戌持世身居五，巳亥持世身居六。
+
+    参数：
+        shi_dizhi: 世爻地支
+
+    返回：
+        int: 世身所在爻位 (1-6)，或 0 表示未知
+    """
+    shi_shen_map = {
+        "子": 1, "午": 1,
+        "丑": 2, "未": 2,
+        "寅": 3, "申": 3,
+        "卯": 4, "酉": 4,
+        "辰": 5, "戌": 5,
+        "巳": 6, "亥": 6,
+    }
+    return shi_shen_map.get(shi_dizhi, 0)
+
+
+def find_guashen_in_lines(lines, guashen_dizhi):
+    """
+    在卦中查找卦身所在的爻位。
+
+    返回：
+        dict 或 None: 卦身所在爻的信息。若不上卦返回 None。
+    """
+    for line in lines:
+        if line.get("dizhi") == guashen_dizhi:
+            return line
+    return None
+
+
+def analyze_guashen(zhuanggua_result):
+    """
+    完整的卦身、世身分析。
+
+    返回：
+        dict: {
+            "yue_guashen": 月卦身地支,
+            "yue_guashen_line": 卦身所在爻或None,
+            "yue_guashen_status": 描述,
+            "shi_shen_position": 世身爻位,
+            "shi_shen_line": 世身所在爻或None,
+            "summary": 综合分析文本,
+        }
+    """
+    lines = zhuanggua_result.get("lines", [])
+    shi_line = next((l for l in lines if l.get("is_shi")), None)
+
+    if not shi_line:
+        return {
+            "yue_guashen": "",
+            "yue_guashen_line": None,
+            "yue_guashen_status": "无世爻，无法定卦身",
+            "shi_shen_position": 0,
+            "shi_shen_line": None,
+            "summary": "无世爻，无法定卦身。",
+        }
+
+    shi_pos = shi_line["position"]
+    shi_dizhi = shi_line.get("dizhi", "")
+    yang_dizhi = {"子", "寅", "辰", "午", "申", "戌"}
+    yin_dizhi = {"丑", "卯", "巳", "未", "酉", "亥"}
+
+    if shi_dizhi in yang_dizhi:
+        shi_is_yang = True
+    elif shi_dizhi in yin_dizhi:
+        shi_is_yang = False
+    else:
+        return {
+            "yue_guashen": "",
+            "yue_guashen_line": None,
+            "yue_guashen_status": "世爻地支未知",
+            "shi_shen_position": 0,
+            "shi_shen_line": None,
+            "summary": "世爻地支未知。",
+        }
+
+    # 月卦身
+    yue_guashen = calculate_yue_guashen(shi_pos, shi_is_yang)
+    guashen_line = find_guashen_in_lines(lines, yue_guashen)
+
+    if guashen_line:
+        guashen_detail = (
+            f"月卦身「{yue_guashen}」现于{guashen_line['position_name']}"
+            f"{guashen_line['liuqin']}，事有头绪、可循迹而断"
+        )
+        if guashen_line.get("is_shi"):
+            guashen_detail += "，卦身持世，事由自主"
+        if guashen_line.get("is_dong"):
+            guashen_detail += "，卦身发动，事体有变"
+        guashen_status = "卦身上卦"
+    else:
+        guashen_detail = (
+            f"月卦身「{yue_guashen}」不入卦，事无头绪、仅有朦胧意向"
+        )
+        guashen_status = "卦身不现"
+
+    # 世身
+    shi_shen_pos = calculate_shi_shen(shi_dizhi)
+    shi_shen_line = lines[shi_shen_pos - 1] if 1 <= shi_shen_pos <= 6 else None
+
+    if shi_shen_line:
+        shi_shen_text = (
+            f"世身居{shi_shen_line['position_name']}"
+            f"{shi_shen_line['liuqin']}（世爻{shi_dizhi}→世身第{shi_shen_pos}爻）"
+        )
+    else:
+        shi_shen_text = f"世身居第{shi_shen_pos}爻（世爻{shi_dizhi}）"
+
+    # 综合
+    summary_parts = [guashen_detail, shi_shen_text]
+    if guashen_line and shi_shen_line and guashen_line["position"] == shi_shen_pos:
+        summary_parts.append("月卦身与世身同位，事身合一，信息集中")
+
+    return {
+        "yue_guashen": yue_guashen,
+        "yue_guashen_line": guashen_line,
+        "yue_guashen_status": guashen_status,
+        "shi_shen_position": shi_shen_pos,
+        "shi_shen_line": shi_shen_line,
+        "summary": "；".join(summary_parts),
+    }

@@ -60,6 +60,8 @@ def run_full_divination():
     print(f"  卦意：{'、'.join(j['core_meaning'][:4])}")
     if j.get("daxiang"):
         print(f"  大象：{j['daxiang']}")
+    if j.get("tuanzhuan"):
+        print(f"  彖传：{j['tuanzhuan']}")
     print(f"  问题：{question}")
     print()
 
@@ -129,6 +131,21 @@ def run_full_divination():
     # ===== 六神制化 =====
     print(f"  【六神制化】{j['liushen_zhihua_summary']}")
     print()
+
+    # ===== 卦身 =====
+    guashen = j.get("guashen_summary", "")
+    if guashen:
+        print(f"  【卦身】{guashen}")
+        print()
+
+    # ===== 神煞 =====
+    shensha = j.get("shensha_summary", "")
+    if shensha and "未中" not in shensha:
+        print(f"  【神煞】{shensha}")
+        key_hints = j.get("shensha_key_hints", [])
+        for hint in key_hints[:3]:
+            print(f"    → {hint}")
+        print()
 
     # ===== 地支关系 =====
     print(f"  【地支关系】{j['dizhi_relation_summary']}")
