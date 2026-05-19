@@ -207,3 +207,214 @@ def get_shier_changsheng(tiangan, dizhi):
         offset = (start_index - target_index) % 12
 
     return SHIER_CHANGSHENG_ORDER[offset]
+
+
+# ═══════════════════════════════════════════════════════════
+# 地支三合局（申子辰合水、亥卯未合木、寅午戌合火、巳酉丑合金）
+# ═══════════════════════════════════════════════════════════
+
+DIZHI_SANHE = {
+    "申子辰": "水",
+    "子辰申": "水",
+    "辰申子": "水",
+    "亥卯未": "木",
+    "卯未亥": "木",
+    "未亥卯": "木",
+    "寅午戌": "火",
+    "午戌寅": "火",
+    "戌寅午": "火",
+    "巳酉丑": "金",
+    "酉丑巳": "金",
+    "丑巳酉": "金",
+}
+
+# 三合局半合（生地半合与墓地半合）
+DIZHI_BANHE = {
+    # 生地半合（生旺半合）
+    ("申", "子"): "水半合（生地）",
+    ("子", "申"): "水半合（生地）",
+    ("亥", "卯"): "木半合（生地）",
+    ("卯", "亥"): "木半合（生地）",
+    ("寅", "午"): "火半合（生地）",
+    ("午", "寅"): "火半合（生地）",
+    ("巳", "酉"): "金半合（生地）",
+    ("酉", "巳"): "金半合（生地）",
+    # 墓地半合（旺墓半合）
+    ("子", "辰"): "水半合（墓地）",
+    ("辰", "子"): "水半合（墓地）",
+    ("卯", "未"): "木半合（墓地）",
+    ("未", "卯"): "木半合（墓地）",
+    ("午", "戌"): "火半合（墓地）",
+    ("戌", "午"): "火半合（墓地）",
+    ("酉", "丑"): "金半合（墓地）",
+    ("丑", "酉"): "金半合（墓地）",
+}
+
+# 地支三会局（寅卯辰会木、巳午未会火、申酉戌会金、亥子丑会水）
+DIZHI_SANHUI = {
+    "寅卯辰": "木",
+    "巳午未": "火",
+    "申酉戌": "金",
+    "亥子丑": "水",
+}
+
+
+def check_sanhe_formation(dizhi_list):
+    """
+    检测地支列表中是否存在三合局。
+
+    参数：
+        dizhi_list: 地支字符串列表
+
+    返回：
+        dict: {"formed": bool, "element": str, "branches": list} 或 None
+    """
+    if len(dizhi_list) < 3:
+        return None
+
+    from itertools import combinations
+    for combo in combinations(dizhi_list, 3):
+        key = "".join(combo)
+        if key in DIZHI_SANHE:
+            return {
+                "formed": True,
+                "element": DIZHI_SANHE[key],
+                "branches": list(combo),
+                "type": "三合局",
+            }
+
+    return None
+
+
+def check_banhe(dizhi_a, dizhi_b):
+    """
+    检测两个地支是否构成半合。
+
+    返回：
+        str: 半合描述，或空字符串
+    """
+    return DIZHI_BANHE.get((dizhi_a, dizhi_b), "")
+
+
+def check_sanhui(dizhi_list):
+    """
+    检测地支列表中是否存在三会局。
+
+    返回：
+        dict 或 None
+    """
+    if len(dizhi_list) < 3:
+        return None
+
+    from itertools import combinations
+    sorted_list = sorted(dizhi_list, key=lambda x: DIZHI_ORDER.index(x) if x in DIZHI_ORDER else 99)
+    for i in range(len(sorted_list) - 2):
+        trio = "".join(sorted_list[i:i + 3])
+        if trio in DIZHI_SANHUI:
+            return {
+                "formed": True,
+                "element": DIZHI_SANHUI[trio],
+                "branches": sorted_list[i:i + 3],
+                "type": "三会局",
+            }
+    return None
+
+
+# ═══════════════════════════════════════════════════════════
+# 六合卦与六冲卦识别
+# ═══════════════════════════════════════════════════════════
+
+# 八纯卦为六冲卦
+PURE_HEXAGRAM_NAMES = {
+    "乾为天", "兑为泽", "离为火", "震为雷",
+    "巽为风", "坎为水", "艮为山", "坤为地",
+}
+
+# 六冲卦（除八纯外，还有十卦）
+LIUCHONG_HEXAGRAMS = PURE_HEXAGRAM_NAMES | {
+    "雷天大壮", "天雷无妄",
+    "水火既济", "火水未济",
+    "风山渐", "山风蛊",
+    "地风升", "风地观",
+    "天水讼", "泽水困",
+    # 注：不同流派对六冲卦的界定略有差异，此处取较通用版本
+}
+
+# 六合卦
+LIUHE_HEXAGRAMS = {
+    "天地否", "地天泰",
+    "山火贲", "火山旅",
+    "水泽节", "泽水困",
+    "雷风恒", "风雷益",
+    "地雷复", "雷地豫",
+    "火风鼎", "风水涣",
+}
+
+
+def is_liuchong_hexagram(hex_name):
+    """判断是否为六冲卦。"""
+    return hex_name in LIUCHONG_HEXAGRAMS
+
+
+def is_liuhe_hexagram(hex_name):
+    """判断是否为六合卦。"""
+    return hex_name in LIUHE_HEXAGRAMS
+
+
+# ═══════════════════════════════════════════════════════════
+# 爻之暗动、日破、月破判断辅助
+# ═══════════════════════════════════════════════════════════
+
+def check_andong(line_dizhi, day_dizhi, is_dong_yao=False):
+    """
+    判断静爻是否暗动。
+
+    规则：静爻被日辰所冲，则为暗动（旺相之爻暗动有力，休囚之爻日破）。
+
+    参数：
+        line_dizhi: 爻的地支
+        day_dizhi: 日辰地支
+        is_dong_yao: 是否已是动爻
+
+    返回：
+        str: "暗动" / "日破" / ""
+    """
+    if is_dong_yao:
+        return ""
+    if DIZHI_CHONG.get(line_dizhi) == day_dizhi:
+        # 旺相者暗动，休囚者日破——此处仅标识为暗动，
+        # 具体旺衰由爻力评分模块进一步判断
+        return "暗动"
+    return ""
+
+
+# ═══════════════════════════════════════════════════════════
+# 六亲与五行反查（供用神系统使用）
+# ═══════════════════════════════════════════════════════════
+
+def get_element_by_liuqin(liuqin_name, palace_wuxing):
+    """
+    根据宫五行与六亲名反查该六亲对应的五行。
+
+    规则：
+    - 兄弟 → 同我（宫五行）
+    - 子孙 → 我生
+    - 妻财 → 我克
+    - 官鬼 → 克我
+    - 父母 → 生我
+    """
+    if liuqin_name == "兄弟":
+        return palace_wuxing
+    if liuqin_name == "子孙":
+        return WUXING_SHENG.get(palace_wuxing, "土")
+    if liuqin_name == "妻财":
+        return WUXING_KE.get(palace_wuxing, "土")
+    if liuqin_name == "官鬼":
+        for k, v in WUXING_KE.items():
+            if v == palace_wuxing:
+                return k
+    if liuqin_name == "父母":
+        for k, v in WUXING_SHENG.items():
+            if v == palace_wuxing:
+                return k
+    return "土"

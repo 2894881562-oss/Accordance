@@ -58,6 +58,8 @@ def run_full_divination():
     _sep("━")
     print(f"  卦辞：{j['gua_ci']}")
     print(f"  卦意：{'、'.join(j['core_meaning'][:4])}")
+    if j.get("daxiang"):
+        print(f"  大象：{j['daxiang']}")
     print(f"  问题：{question}")
     print()
 

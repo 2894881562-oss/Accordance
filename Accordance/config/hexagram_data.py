@@ -98,7 +98,7 @@ HEXAGRAM_DATA = {
         "name": "天水讼",
         "pinyin": "tiān shuǐ sòng",
         "palace": "离宫",
-        "core_meaning": ["谈判", "诉讼", "裁决", "对立", "矛盾", "冲突", "坚持", "争讼", "咏颂"],
+        "core_meaning": ["谈判", "诉讼", "裁决", "对立", "矛盾", "冲突", "坚持", "争讼", "慎行"],
         "ji_xiong": "中下卦",
         "gua_ci": "讼：有孚，窒惕，中吉，终凶。利见大人，不利涉大川。",
         "yao_ci": [
@@ -169,7 +169,7 @@ HEXAGRAM_DATA = {
         "serial_num": 10,
         "name": "天泽履",
         "pinyin": "tiān zé lǚ",
-        "palace": "乾宫",
+        "palace": "艮宫",
         "core_meaning": ["实践", "危险", "警惧", "顾虑", "学习", "踏实", "履行"],
         "ji_xiong": "中上卦",
         "gua_ci": "履：履虎尾，不咥人，亨。",

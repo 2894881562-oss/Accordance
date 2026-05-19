@@ -139,6 +139,8 @@ def _print_option(label, name, r):
     _sep("━")
     print(f"  卦辞：{r['gua_ci']}")
     print(f"  卦意：{'、'.join(r['core_meaning'][:3])}")
+    if r.get("daxiang"):
+        print(f"  大象：{r['daxiang']}")
     print(f"  体用：{tiyong.get('relation', '')} — {tiyong.get('relation_desc', '')}")
     print(f"  五行：{r['sheng_ke_analysis']}")
     print(f"  旺衰：{r['wang_shuai_analysis']}")

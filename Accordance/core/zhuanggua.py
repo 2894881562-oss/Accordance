@@ -28,6 +28,7 @@ from config.wuxing_rules import (
     TIANGAN_WUXING, SHIER_CHANGSHENG_ORDER,
     WUXING_SHIER_CHANGSHENG, DIZHI_ORDER,
     DIZHI_CHONG, DIZHI_HE, DIZHI_HAI, DIZHI_XING,
+    check_andong,
 )
 from config.hexagram_data import HEXAGRAM_DATA
 from core.qi_context import (
@@ -803,6 +804,7 @@ def zhuang_gua_complete(upper_num, lower_num, solar=None, lunar_info=None):
             "is_shi": pos == shi_pos,
             "is_ying": pos == ying_pos,
             "is_dong": False,
+            "andong": check_andong(dizhi, day_dizhi, is_dong_yao=False),
         })
 
     result = {
@@ -1401,11 +1403,226 @@ def build_traditional_evidence_chain(zhuanggua_result, yongshen_system, bian_rel
     yuepo = zhuanggua_result.get("yuepo", "未知")
     ripo = zhuanggua_result.get("ripo", "未知")
     palace = f"{zhuanggua_result.get('palace_name', '未知')}宫{zhuanggua_result.get('palace_role', '')}"
+
+    # 添加反吟伏吟检测
+    fan_fu_text = ""
+    fanfu = analyze_fanfu(zhuanggua_result)
+    if fanfu:
+        fan_fu_text = f"；{fanfu['summary']}"
+
     return (
         f"传统依据链：先定{palace}与世应，再取月建{zhuanggua_result.get('yueling', '未知')}、"
-        f"日辰{zhuanggua_result.get('day_dizhi', '未知')}、旬空{xunkong}、月破{yuepo}、日破{ripo}；"
+        f"日辰{zhuanggua_result.get('day_dizhi', '未知')}、旬空{xunkong}、月破{yuepo}、日破{ripo}{fan_fu_text}；"
         f"本问取{yongshen_system.get('yongshen_name', '未知')}为用神，"
         f"用神系统评分{yongshen_system.get('score', 0):+.1f}；"
         f"{bian_relation.get('summary', '')}"
         "现实校验：凡涉金钱、合同、健康、法律、职业选择，仍应以事实证据、成本、时间、责任边界和专业意见复核。"
     )
+
+
+# ------------------------------------------------------------
+# 11. 反吟伏吟检测
+# ------------------------------------------------------------
+
+def analyze_fanfu(zhuanggua_result):
+    """
+    检测卦象是否存在反吟或伏吟。
+
+    反吟：动爻与所化变爻地支相冲，卦象反复颠簸。
+    伏吟：动爻与所化变爻地支相同，事情停滞不前。
+
+    注意：此函数需要配合变卦装卦结果使用，当前仅对单卦做初步检测。
+    """
+    lines = zhuanggua_result.get("lines", [])
+    dong_lines = [l for l in lines if l.get("is_dong")]
+
+    if not dong_lines:
+        return None
+
+    # 检查是否有内部反吟迹象（爻与月建/日辰成冲且该爻发动）
+    fan_yin_hints = []
+    for line in dong_lines:
+        dizhi = line.get("dizhi", "")
+        month_rels = line.get("month_relations", [])
+        day_rels = line.get("day_relations", [])
+        if "冲" in month_rels:
+            fan_yin_hints.append(
+                f"{line['position_name']}{dizhi}与月建相冲且发动，有反复不稳之象"
+            )
+        if "冲" in day_rels:
+            fan_yin_hints.append(
+                f"{line['position_name']}{dizhi}与日辰相冲且发动，急迫变动之象"
+            )
+
+    if fan_yin_hints:
+        return {
+            "type": "反吟迹象",
+            "summary": "；".join(fan_yin_hints),
+            "detail": "反吟主事有反复、来回折腾、一波三折。宜以静制动，不宜推动重大变化。",
+        }
+
+    return None
+
+
+# ------------------------------------------------------------
+# 12. 独发独静分析
+# ------------------------------------------------------------
+
+def analyze_dong_yao_pattern(zhuanggua_result, dong_yao=None):
+    """
+    分析动爻格局：独发、独静、多爻发动。
+
+    六爻中仅一爻发动为"独发"，事机单纯、主线清晰。
+    六爻中仅一爻不发动为"独静"，事有多变、唯一不变的是关键。
+    三爻以上发动为"乱动"，事情复杂、多方牵扯。
+    """
+    lines = zhuanggua_result.get("lines", [])
+    dong_count = sum(1 for l in lines if l.get("is_dong"))
+    total = len(lines)
+
+    if dong_count == 0:
+        return {
+            "pattern": "六爻俱静",
+            "significance": "事机安静，暂无大变动。以静观其变，等待时机成熟。",
+            "score_mod": 0,
+        }
+    elif dong_count == 1:
+        dong_line = next((l for l in lines if l.get("is_dong")), None)
+        return {
+            "pattern": "独发",
+            "significance": (
+                f"独发之爻为{dong_line['position_name']}{dong_line['liuqin']}，"
+                f"事机单纯、主线清晰，一切变化由此爻而起。"
+                f"重点看此爻的生克冲合与所化之变爻。"
+            ) if dong_line else "独发，事机单纯。",
+            "score_mod": 0.5,
+        }
+    elif dong_count == total - 1:
+        jing_line = next((l for l in lines if not l.get("is_dong")), None)
+        return {
+            "pattern": "独静",
+            "significance": (
+                f"唯{jing_line['position_name']}{jing_line['liuqin']}不发动，"
+                f"此爻反为事机关键——众动之中唯一不变者，即是根本所在。"
+            ) if jing_line else "独静，一爻不动是关键。",
+            "score_mod": 0,
+        }
+    elif dong_count >= 4:
+        return {
+            "pattern": "乱动",
+            "significance": (
+                f"六爻中{dong_count}爻发动，事涉多方、头绪纷繁。"
+                f"宜先理清主次，以世爻、用神所在之动爻为重心，"
+                f"不宜眉毛胡子一把抓。"
+            ),
+            "score_mod": -0.5,
+        }
+    else:
+        return {
+            "pattern": f"{dong_count}爻发动",
+            "significance": f"事有{dong_count}处变动，宜逐条分析，理清因果。",
+            "score_mod": 0,
+        }
+
+
+# ------------------------------------------------------------
+# 13. 用神多现取用规则
+# ------------------------------------------------------------
+
+def select_primary_yongshen(yong_lines):
+    """
+    用神多现时，按传统规则选取主用神。
+
+    规则优先级：
+    1. 发动之爻优先
+    2. 持世之爻优先
+    3. 旺相有力者优先
+    4. 不逢空破者优先
+    5. 近世爻者优先
+
+    返回选定的主用神爻，以及选取理由。
+    """
+    if not yong_lines:
+        return None, "用神不现"
+
+    if len(yong_lines) == 1:
+        return yong_lines[0], "用神唯一"
+
+    # 优先级1：发动者
+    dong = [l for l in yong_lines if l.get("is_dong")]
+    if len(dong) == 1:
+        return dong[0], "多现之中唯此发动，取为用神"
+
+    # 优先级2：持世者
+    chi_shi = [l for l in yong_lines if l.get("is_shi")]
+    if chi_shi:
+        return chi_shi[0], "用神持世，取世爻为用"
+
+    # 优先级3：旺相有力且不空破
+    healthy = [
+        l for l in yong_lines
+        if l.get("strength_score", -99) >= 2
+        and not l.get("is_xunkong")
+        and not l.get("is_yuepo")
+        and not l.get("is_ripo")
+    ]
+    if healthy:
+        best = max(healthy, key=lambda ll: ll.get("strength_score", 0))
+        return best, f"取旺相不空不破者（{best['position_name']}{best['changsheng']}）为用"
+
+    # 优先级4：随意取第一现者
+    return yong_lines[0], f"用神多现（共{len(yong_lines)}处），取{yong_lines[0]['position_name']}为用，余为辅助参考"
+
+
+# ------------------------------------------------------------
+# 14. 六合卦/六冲卦特殊分析
+# ------------------------------------------------------------
+
+def analyze_hexagram_liuhe_liuchong(hexagram_name):
+    """
+    判断卦是否为六合卦或六冲卦，并给出特殊断语。
+
+    六合卦：主事体稳固、长久、和谐，但有时也主牵绊难解。
+    六冲卦：主事体散乱、短促、多变，但有时也主迅速解决。
+    """
+    from config.wuxing_rules import is_liuchong_hexagram, is_liuhe_hexagram, \
+        PURE_HEXAGRAM_NAMES
+
+    is_chong = is_liuchong_hexagram(hexagram_name)
+    is_he = is_liuhe_hexagram(hexagram_name)
+    is_pure = hexagram_name in PURE_HEXAGRAM_NAMES
+
+    if is_pure:
+        return {
+            "pattern": "八纯六冲",
+            "analysis": (
+                "八纯卦为六冲之最，大象冲散。问近事可速成，问长远则多变。"
+                "世应同级相冲（初与四、二与五、三与六），上下卦同气对冲，"
+                "宜速决不宜拖延，长期之事需防反复变动。"
+            ),
+            "score_mod": -1.0,
+        }
+
+    if is_chong:
+        return {
+            "pattern": "六冲卦",
+            "analysis": (
+                "六冲卦主事体散而不聚。若问急事则快刀斩乱麻有望速解；"
+                "若问合作、婚姻、长久之事，则冲则散，不易稳定。"
+                "动爻若化回头合，可解部分冲象。"
+            ),
+            "score_mod": -0.5,
+        }
+
+    if is_he:
+        return {
+            "pattern": "六合卦",
+            "analysis": (
+                "六合卦主事体和谐稳固。问合作、婚姻、长久之事大吉；"
+                "但若问诉讼、分手、脱离困境之事，合则难解，反而不利。"
+                "合中逢冲可解合局。"
+            ),
+            "score_mod": 0.5,
+        }
+
+    return None

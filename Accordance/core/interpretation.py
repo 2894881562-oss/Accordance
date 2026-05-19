@@ -15,6 +15,7 @@ from config.yijing_philosophy import (
     build_human_guidance, get_hexagram_wisdom, get_situation_advice,
     HUMAN_AGENCY_REMINDER,
 )
+from config.daxiang_data import get_daxiang
 from core.divination import (
     calculate_bian_gua, calculate_hugua, calculate_cuogua,
     calculate_zonggua, identify_tiyong,
@@ -27,6 +28,8 @@ from core.zhuanggua import (
     refresh_line_strengths, analyze_yongshen_system,
     analyze_line_strength_summary, analyze_bian_line_relation,
     build_traditional_evidence_chain,
+    analyze_dong_yao_pattern, analyze_hexagram_liuhe_liuchong,
+    select_primary_yongshen,
 )
 
 
@@ -211,13 +214,28 @@ def _build_specific_judgment(zhuanggua_result, yongshen_system, bian_line_relati
     if hexagram_pattern:
         parts.append(hexagram_pattern)
 
+    # --- 独发独静分析 ---
+    dong_pattern = analyze_dong_yao_pattern(zhuanggua_result, dong_yao)
+    pattern_score_mod = 0.0
+    if dong_pattern and dong_pattern.get("pattern") != "六爻俱静":
+        parts.append(dong_pattern["significance"])
+        pattern_score_mod = dong_pattern.get("score_mod", 0)
+
+    # --- 六合六冲分析 ---
+    hex_name = hexagram_detail.get("name", "")
+    liuhe_chong = analyze_hexagram_liuhe_liuchong(hex_name)
+    liuhe_chong_score_mod = 0.0
+    if liuhe_chong:
+        parts.append(f"卦象格局：{liuhe_chong['pattern']}——{liuhe_chong['analysis']}")
+        liuhe_chong_score_mod = liuhe_chong.get("score_mod", 0)
+
     # --- 应期分析 ---
     timing = _analyze_timing(zhuanggua_result, yongshen_system, dong_line)
     if timing:
         parts.append(timing)
 
     # --- 综合结论 ---
-    combined_score = yong_score + bian_score * 0.6
+    combined_score = yong_score + bian_score * 0.6 + pattern_score_mod + liuhe_chong_score_mod
     if shi_line and dong_line:
         if dong_line.get("liuqin") == yongshen_name:
             combined_score += 1.0
@@ -280,11 +298,59 @@ def _analyze_timing(zhuanggua_result, yongshen_system, dong_line):
             if "旬空" in dong_line.get("line_status", []):
                 tips.append(f"动爻逢{dong_dizhi}旬空，出空之日/月为发动应期")
 
+    # 用神入墓应期
+    if not has_xk_or_yp and yong_lines:
+        for line in yong_lines[:1]:
+            cs = line.get("changsheng", "")
+            dizhi = line.get("dizhi", "")
+            if cs == "墓":
+                tips.append(f"用神入墓于{dizhi}，待冲墓（冲{dizhi}）之日/月方能出墓为应期")
+                has_xk_or_yp = True
+                break
+
+    # 用神被合应期
+    if not has_xk_or_yp and yong_lines:
+        for line in yong_lines[:1]:
+            dizhi = line.get("dizhi", "")
+            month_rels = line.get("month_relations", [])
+            day_rels = line.get("day_relations", [])
+            if "合" in month_rels:
+                from config.wuxing_rules import DIZHI_HE
+                he_target = DIZHI_HE.get(dizhi, "")
+                tips.append(f"用神{dizhi}与月建相合，待冲开合局（冲{he_target}或冲{dizhi}）之日/月为应期")
+                has_xk_or_yp = True
+                break
+            if "合" in day_rels:
+                from config.wuxing_rules import DIZHI_HE
+                he_target = DIZHI_HE.get(dizhi, "")
+                tips.append(f"用神{dizhi}与日辰相合，短期被绊住，待冲开之日为应期")
+                has_xk_or_yp = True
+                break
+
+    # 用神绝处逢生应期
+    if not has_xk_or_yp and yong_lines:
+        for line in yong_lines[:1]:
+            cs = line.get("changsheng", "")
+            if cs == "绝":
+                tips.append("用神处绝地，然绝处逢生——待长生之地或原神旺相之时为转机")
+                has_xk_or_yp = True
+                break
+
     # 用神安静应期（没有旬空/月破时才提示）
     if not has_xk_or_yp and yong_lines and not any(l.get("is_dong") for l in yong_lines):
         for line in yong_lines[:1]:
             dizhi = line.get("dizhi", "")
-            tips.append(f"用神安静，待逢值（{dizhi}）或逢冲之日/月为应期")
+            tips.append(f"用神安静，待逢值（{dizhi}出现）或逢冲之日/月为应期")
+
+    # 动爻被合应期（动逢合则绊住）
+    if dong_line and not has_xk_or_yp:
+        dong_dizhi = dong_line.get("dizhi", "")
+        day_rels = dong_line.get("day_relations", [])
+        month_rels = dong_line.get("month_relations", [])
+        if "合" in day_rels:
+            tips.append(f"动爻{dong_dizhi}被日辰合住，暂时不能发力，待冲开之日为发动应期")
+        elif "合" in month_rels:
+            tips.append(f"动爻{dong_dizhi}被月建合住，当月难发力，待次月冲开为应期")
 
     return "；".join(tips) if tips else ""
 
@@ -640,6 +706,9 @@ def interpret_hexagram(hexagram_info):
         xia_gua_name=lower_gua["name"],
     )
 
+    # ── 大象传 ──
+    daxiang_data = get_daxiang(hexagram_detail["name"])
+
     # 世爻六亲
     shishen_liuqin = get_shishen_liuqin(zhuanggua_result)
     shishen_info = LIUQIN_XIANGYI.get(shishen_liuqin, {})
@@ -710,6 +779,10 @@ def interpret_hexagram(hexagram_info):
         # 人本哲学
         "human_guidance": human_guidance,
         "human_agency_reminder": HUMAN_AGENCY_REMINDER,
+        # 大象传
+        "daxiang": daxiang_data["daxiang"],
+        "daxiang_shangxia": daxiang_data["shangxia_xiang"],
+        "daxiang_junzi": daxiang_data["junzi_jiao"],
         "naja_analysis": zhuanggua_table,
         "naja_info": zhuanggua_result,
         "decision_suggest": specific_judgment["conclusion"],
