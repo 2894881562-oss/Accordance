@@ -102,6 +102,12 @@ def run_name_divination():
     print(f"  ▶ {r['judgment_conclusion']}")
     _sep("═")
 
+    # ===== 人本指引 =====
+    human = r.get("human_guidance", "")
+    if human:
+        print(human)
+    print(r.get("human_agency_reminder", ""))
+
     print(f"  起卦日干支：{get_accurate_day_ganzhi()}")
     _sep("═")
     print()

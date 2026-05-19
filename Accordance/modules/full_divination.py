@@ -152,6 +152,12 @@ def run_full_divination():
           f"种子：{hexagram_info['qi_seed']}")
     print()
 
+    # ===== 人本指引 =====
+    human = j.get("human_guidance", "")
+    if human:
+        print(human)
+    print(j.get("human_agency_reminder", ""))
+    print()
     # ===== 提醒 =====
     print(f"  【提醒】本系统仅为传统文化研究参考，不替代现实判断。")
     _sep("═")

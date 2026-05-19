@@ -189,6 +189,8 @@ def _compare(option_a, score_a, r_a, option_b, score_b, r_b):
 
     print()
     print("  提醒：卦象只为参考，金钱/合同/健康/法律等重要事项应以事实和专业意见为准。")
+    # 人本提醒
+    print(r_a.get("human_agency_reminder", ""))
 
 
 def run_decision_helper():

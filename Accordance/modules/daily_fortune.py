@@ -78,6 +78,11 @@ def run_daily_fortune():
     print(f"  ▶ {r['judgment_conclusion']}")
     _sep("═")
 
+    # ===== 人本指引 =====
+    human = r.get("human_guidance", "")
+    if human:
+        print(human)
+
     print(f"  提醒：当日气运用於查看整体基调，临时问题请用三爻快占，重大决策请用六爻详占。")
     _sep("═")
     print()

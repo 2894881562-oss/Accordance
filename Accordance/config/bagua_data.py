@@ -3,7 +3,7 @@ BAGUA_DATA = {
     1: {
         "name": "乾",
         "full_name": "乾为天",
-        "gua_hua": "☰",
+        "gua_hua": "乾三连",
         "element": "金",
         "position": "西北",
         "color": "白色/金色",
@@ -15,7 +15,7 @@ BAGUA_DATA = {
     2: {
         "name": "兑",
         "full_name": "兑为泽",
-        "gua_hua": "☱",
+        "gua_hua": "兑上缺",
         "element": "金",
         "position": "正西",
         "color": "白色",
@@ -27,7 +27,7 @@ BAGUA_DATA = {
     3: {
         "name": "离",
         "full_name": "离为火",
-        "gua_hua": "☲",
+        "gua_hua": "离中虚",
         "element": "火",
         "position": "正南",
         "color": "红色",
@@ -39,7 +39,7 @@ BAGUA_DATA = {
     4: {
         "name": "震",
         "full_name": "震为雷",
-        "gua_hua": "☳",
+        "gua_hua": "震仰盂",
         "element": "木",
         "position": "正东",
         "color": "绿色",
@@ -51,7 +51,7 @@ BAGUA_DATA = {
     5: {
         "name": "巽",
         "full_name": "巽为风",
-        "gua_hua": "☴",
+        "gua_hua": "巽下断",
         "element": "木",
         "position": "东南",
         "color": "青花色",
@@ -63,7 +63,7 @@ BAGUA_DATA = {
     6: {
         "name": "坎",
         "full_name": "坎为水",
-        "gua_hua": "☵",
+        "gua_hua": "坎中满",
         "element": "水",
         "position": "正北",
         "color": "黑色",
@@ -75,7 +75,7 @@ BAGUA_DATA = {
     7: {
         "name": "艮",
         "full_name": "艮为山",
-        "gua_hua": "☶",
+        "gua_hua": "艮覆碗",
         "element": "土",
         "position": "东北",
         "color": "黑黄色",
@@ -87,7 +87,7 @@ BAGUA_DATA = {
     8: {
         "name": "坤",
         "full_name": "坤为地",
-        "gua_hua": "☷",
+        "gua_hua": "坤六断",
         "element": "土",
         "position": "西南",
         "color": "黄色",

@@ -11,6 +11,10 @@ from config.bagua_data import (
 from config.naja_data import (
     LIUQIN_XIANGYI, LIUSHEN_XIANGYI,
 )
+from config.yijing_philosophy import (
+    build_human_guidance, get_hexagram_wisdom, get_situation_advice,
+    HUMAN_AGENCY_REMINDER,
+)
 from core.divination import (
     calculate_bian_gua, calculate_hugua, calculate_cuogua,
     calculate_zonggua, identify_tiyong,
@@ -195,6 +199,18 @@ def _build_specific_judgment(zhuanggua_result, yongshen_system, bian_line_relati
     elif tiyong_relation == "比和":
         parts.append("体用：比和，五行相同，百事顺遂")
 
+    # --- 世应关系 ---
+    ying_line = next((l for l in lines if l.get("is_ying")), None)
+    if shi_line and ying_line:
+        shi_ying_relations = _build_shi_ying_analysis(shi_line, ying_line, dong_line)
+        if shi_ying_relations:
+            parts.append(shi_ying_relations)
+
+    # --- 卦象特殊格局 ---
+    hexagram_pattern = _analyze_hexagram_pattern(zhuanggua_result, hexagram_detail)
+    if hexagram_pattern:
+        parts.append(hexagram_pattern)
+
     # --- 应期分析 ---
     timing = _analyze_timing(zhuanggua_result, yongshen_system, dong_line)
     if timing:
@@ -273,126 +289,186 @@ def _analyze_timing(zhuanggua_result, yongshen_system, dong_line):
     return "；".join(tips) if tips else ""
 
 
+def _build_shi_ying_analysis(shi_line, ying_line, dong_line):
+    """分析世应关系。"""
+    shi_dizhi = shi_line.get("dizhi", "")
+    ying_dizhi = ying_line.get("dizhi", "")
+    shi_lq = shi_line.get("liuqin", "")
+    ying_lq = ying_line.get("liuqin", "")
+
+    from config.wuxing_rules import DIZHI_CHONG, DIZHI_HE, DIZHI_XING, WUXING_SHENG, WUXING_KE
+    relations = []
+    if DIZHI_CHONG.get(shi_dizhi) == ying_dizhi:
+        relations.append("世应相冲，双方立场对立，事情多有冲突")
+    if DIZHI_HE.get(shi_dizhi) == ying_dizhi:
+        relations.append("世应相合，双方关系融洽，事情易成")
+
+    shi_el = shi_line.get("dizhi_wuxing", "")
+    ying_el = ying_line.get("dizhi_wuxing", "")
+    if WUXING_SHENG.get(ying_el) == shi_el:
+        relations.append("应生世，对方主动来助，于我有益")
+    elif WUXING_KE.get(ying_el) == shi_el:
+        relations.append("应克世，对方给我压力，需谨慎应对")
+    elif WUXING_SHENG.get(shi_el) == ying_el:
+        relations.append("世生应，我主动付出，耗力为他人")
+    elif WUXING_KE.get(shi_el) == ying_el:
+        relations.append("世克应，我能掌控局面")
+    elif shi_el == ying_el:
+        relations.append("世应同气，双方势均力敌")
+
+    if shi_lq == ying_lq:
+        relations.append(f"世应同为{shi_lq}，所求之事与此六亲密切相关")
+
+    return "；".join(relations) if relations else ""
+
+
+def _analyze_hexagram_pattern(zhuanggua_result, hexagram_detail):
+    """分析卦象特殊格局：六合卦、六冲卦、归魂卦、游魂卦等。"""
+    patterns = []
+    palace_role = zhuanggua_result.get("palace_role", "")
+
+    if palace_role == "归魂":
+        patterns.append("此为归魂卦，事有归根复命之象。问出行宜归，问失物易回，问事业宜守不宜变")
+    elif palace_role == "游魂":
+        patterns.append("此为游魂卦，事有飘荡不定之象。变动较多，需明确方向再行动，不宜贸然决定")
+
+    # 八纯卦（六冲卦）
+    hexagram_name = hexagram_detail.get("name", "")
+    pure_hexagrams = {"乾为天", "兑为泽", "离为火", "震为雷", "巽为风", "坎为水", "艮为山", "坤为地"}
+    if hexagram_name in pure_hexagrams:
+        patterns.append("此为八纯六冲卦，事多散乱不长久。宜速决不宜拖延，长期之事需防变动反复")
+
+    return "；".join(patterns) if patterns else ""
+
+
 def _build_category_conclusion(category, yongshen_name, score, yong_lines,
                                 yuan_lines, ji_lines, bian_relation,
                                 shi_line, dong_line, timing=""):
-    """根据问事类别生成具体结论断语。"""
+    """根据问事类别生成具体结论断语，融入传统六爻断卦用语与人的因素考量。"""
     has_yong = bool(yong_lines)
     yong_strong = any(l.get("strength_score", 0) >= 2 for l in yong_lines) if yong_lines else False
     yong_weak = all(l.get("strength_score", 0) < 0 for l in yong_lines) if yong_lines else True
+    yong_appears = any(not (l.get("line_status") or l.get("is_xunkong")) for l in yong_lines) if yong_lines else False
     yuan_strong = any(l.get("strength_score", 0) >= 2 for l in yuan_lines) if yuan_lines else False
     ji_strong = any(l.get("strength_score", 0) >= 2 for l in ji_lines) if ji_lines else False
     has_huike = bian_relation == "回头克"
     has_huisheng = bian_relation == "回头生"
+    has_huaxie = bian_relation == "化泄"
+    shi_yong_tongwei = shi_line and yong_lines and shi_line.get("liuqin") == yongshen_name
 
-    # 婚恋需要优先判断（女占婚恋用官鬼，但不能走官职逻辑）
-    if "婚恋" in category:
-        base = ""
-        if yong_strong and score >= 2:
-            base = "用神旺相，感情有利，可主动推进关系发展"
-        elif yong_weak:
-            base = "用神衰弱，感情近期难有突破，宜顺其自然"
-        elif has_huike:
-            base = "动变回头克，感情须防反复与矛盾激化，宜多沟通少争执"
-        elif has_huisheng:
-            base = "动变回头生，感情后势有回暖迹象，可耐心经营"
-        elif score >= 0:
-            base = "用神力量中平，感情宜稳中求进，不宜操之过急"
-        else:
-            base = "用神受制偏弱，感情宜保持距离观察，不宜贸然表白或决定"
-        if timing:
-            base += f"。{timing}"
-        return base
+    def _append_timing(text):
+        return f"{text}。{timing}" if timing else text
 
+    # ── 财货运（妻财为用神）──
     if "财货" in category or "妻财" == yongshen_name:
-        base = ""
         if yong_strong and yuan_strong and not ji_strong:
-            base = "财爻旺相得生，求财有利，宜把握时机主动出击"
+            base = "财爻旺相得原神生扶，求财大有利。宜把握时机主动出击，但需见好即收、不可过度贪婪"
         elif yong_strong and ji_strong:
-            base = "财爻虽旺但忌神亦强，求财有竞争消耗，宜快进快出不宜久持"
+            base = "财爻虽旺但忌神同强，求财有竞争消耗之象。宜速战速决、不宜久持长线，注意合伙中的利益分配"
         elif yong_weak and ji_strong:
-            base = "财爻衰弱忌神猖獗，破耗之象明显，求财不利，守成为上，暂勿投资"
+            base = "财爻衰弱而忌神猖獗，破耗之象明显。守成为上，暂勿投资扩张，先控制支出、巩固现金流"
         elif not has_yong:
-            base = "财爻不现，求财需待时机。若伏神得生则待出现之月可图，若伏神受克则难成"
-        elif has_huisheng:
-            base = "动变回头生扶，求财后势有补益，可小步试探，待势头明朗再加码"
+            base = "财爻不现于卦中，求财时机未到。宜耐心等待，切忌急于求成。若伏神有气得扶，则待出伏之日可图"
         elif has_huike:
-            base = "动变回头克，求财须防后续反噬，不可贪多冒进，见好即收"
+            base = "动变回头克财，求财须防前赚后赔。宜小步试探，见利即收，不可贪多冒进"
+        elif has_huisheng:
+            base = "动变回头生扶财爻，求财后势有补益。可循序渐进投入，待势头明朗后再加码"
+        elif has_huaxie:
+            base = "动变化泄财气，投入多而回报薄，或赚到手的钱因事消耗。宜精打细算、控制成本"
+        elif shi_yong_tongwei and yong_strong:
+            base = "财爻持世旺相，求财主动有利，自身就是财富的源头。自信果断地去做，但莫忘合法合规"
         elif score >= 3:
-            base = "用神证据偏强，求财有利，可按计划推进"
+            base = "用神证据偏强，求财总体有利。可按计划推进，但需关注忌神动向与动变风险"
         elif score >= 0:
-            base = "用神力量中平，求财宜稳中求进，不宜大举投入"
+            base = "用神力量中平，求财宜稳中求进。不宜大举投入，以小步试探为好"
         else:
-            base = "用神受制偏弱，求财不利，宜守不宜攻，静待时机"
-        if timing:
-            base += f"。{timing}"
-        return base
+            base = "用神受制偏弱，求财不顺利。宜守不宜攻，以节省开支、稳固现有资源为主，静待时运好转"
+        return _append_timing(base)
 
+    # ── 官职事业运（官鬼为用神）──
     if "官职" in category or "官鬼" == yongshen_name:
-        base = ""
-        if yong_strong and not ji_strong:
-            base = "官爻旺相，事业有利，升迁有望，宜积极争取"
-        elif yong_strong and ji_strong:
-            base = "官爻旺但忌神来克，事业有竞争压力，需防小人暗算"
+        if "婚恋" in category:
+            # 女占婚恋的官鬼处理，已在上面婚恋分支处理
+            pass
+        else:
+            if yong_strong and yuan_strong and not ji_strong:
+                base = "官爻旺相得原神生扶，事业运佳、升迁有望。宜积极争取机会，展现能力，但戒骄戒躁"
+            elif yong_strong and ji_strong:
+                base = "官爻虽旺但忌神亦强，事业有竞争压力，或遇小人阻碍。宜低调行事，以实力服人而非正面冲突"
+            elif yong_weak:
+                base = "官爻衰弱，事业近期难有突破。不宜跳槽或创业，宜韬光养晦、提升自我，待机而发"
+            elif has_huike:
+                base = "动变回头克官，事业须防后续变故或上级不满。做好分内之事、留好工作记录，不可轻易冒险"
+            elif has_huisheng:
+                base = "动变回头生官，事业后势有贵人扶持或机会再现。坚持下去可成，但不可松懈"
+            elif score >= 2:
+                base = "用神证据偏有利，事业可按计划推进。专心致志、稳扎稳打"
+            elif score >= -1:
+                base = "用神力量中平，事业宜求稳。不急功近利，也不妄自菲薄，踏实做好每一件小事"
+            else:
+                base = "用神受制较重，事业宜守不宜攻。不轻易辞职或转换方向，待自身状态与时机更好时再图进取"
+            return _append_timing(base)
+
+    # ── 婚恋感情 ──
+    if "婚恋" in category:
+        if yong_strong and yong_appears and score >= 2:
+            base = "用神旺相有根，感情发展有利。可主动推进关系、增进了解，但水到渠成比强求更长久"
+        elif yong_strong and not yong_appears:
+            base = "用神旺但逢空破，感情表面不错却有隐忧。多沟通了解彼此真实想法，勿只看表面"
         elif yong_weak:
-            base = "官爻衰弱，事业近期难有起色，宜韬光养晦，待机而发"
+            base = "用神衰弱，感情近期难有实质性突破。宜顺其自然、先做好自己，不必强求结果"
         elif has_huike:
-            base = "动变回头克，事业须防后续变故，不可轻易跳槽或扩张"
+            base = "动变回头克，感情须防反复与矛盾激化。沟通比冷战好，坦诚比猜忌好，给对方也给自已空间"
         elif has_huisheng:
-            base = "动变回头生，事业后势有贵人扶持，坚持可成"
-        elif score >= 2:
-            base = "用神证据偏有利，事业可按计划推进"
-        elif score >= -1:
-            base = "用神力量中平，事业宜稳守，不宜冒险"
+            base = "动变回头生，感情后势有回暖迹象。耐心经营、真诚相待，不可急于求成"
+        elif score >= 0:
+            base = "用神力量中平，感情宜顺其自然。不被一时情绪左右，以平常心相待"
         else:
-            base = "用神受制较重，事业宜守不宜攻，待时运好转再图"
-        if timing:
-            base += f"。{timing}"
-        return base
+            base = "用神受制偏弱，感情之事暂时不宜主动强求。先观己身、修身养性，好的感情需要双方都准备好的时机"
+        return _append_timing(base)
 
+    # ── 文书考试（父母为用神）──
     if "文书" in category or "父母" == yongshen_name:
-        base = ""
-        if yong_strong:
-            base = "父母爻旺相，文书考试之事有利，宜认真准备积极应试"
+        if yong_strong and yuan_strong:
+            base = "父母爻旺相得生，文书、考试、契约之事大吉。宜认真准备、积极应试，踏实付出必有收获"
+        elif yong_strong:
+            base = "父母爻旺相，文书考试基本有利。但原神不显，需要更加努力，不可仅寄希望于运气"
         elif yong_weak:
-            base = "父母爻衰弱，文书考试之事需加倍努力，不可掉以轻心"
+            base = "父母爻衰弱，文书考试需加倍用功。不要找捷径，扎实的学习和准备是唯一的保障"
+        elif has_huike:
+            base = "动变回头克父母爻，考试或文书办理可能出现意外。提早准备、留出余量时间，做好备选方案"
         elif score >= 1:
-            base = "用神证据偏有利，文书契约之事可按程序推进"
+            base = "用神证据偏有利，文书考试之事可按计划推进。保持平常心、稳定发挥"
         else:
-            base = "用神受制偏弱，文书之事恐有波折，宜仔细核对避免疏漏"
-        if timing:
-            base += f"。{timing}"
-        return base
+            base = "用神受制偏弱，文书之事恐有波折。仔细核对材料、避免疏漏，考试则需加倍努力"
+        return _append_timing(base)
 
+    # ── 子女福神（子孙为用神）──
     if "子女" in category or "子孙" == yongshen_name:
-        base = ""
         if yong_strong:
-            base = "子孙爻旺相，子女/娱乐/医疗之事有利，福神得力可解忧"
+            base = "子孙爻旺相，子女之事顺利，福神得力可解灾厄。医药、娱乐、创意类事务也有利"
         elif yong_weak:
-            base = "子孙爻衰弱，子女之事或有隐忧，需多加关注"
+            base = "子孙爻衰弱，子女之事或有隐忧。多加关注陪伴，但不必过度焦虑，耐心是最佳良药"
+        elif has_huike:
+            base = "动变回头克子孙，须防子女健康或情绪波动。提前关注、及时沟通，防患于未然"
         elif score >= 1:
-            base = "用神证据偏有利，所问之事可乐观以待"
+            base = "用神证据偏有利，所问之事可乐观以待。但乐不忘忧，保持适度警觉"
         else:
-            base = "用神受制偏弱，宜谨慎行事，多做准备"
-        if timing:
-            base += f"。{timing}"
-        return base
+            base = "用神受制偏弱，宜谨慎行事、多做准备。小心驶得万年船"
+        return _append_timing(base)
 
-    # 泛问 / 默认
-    base = ""
+    # ── 泛问 / 综合断语 ──
     if score >= 4:
-        base = "用神旺相有力，原神生扶到位，所问之事可积极推进，顺势而为"
+        base = "用神旺相有力，原神生扶到位，忌神不兴，所问之事可积极推进、顺势而为。但即使大吉，也需保持谦卑敬畏之心——骄兵必败，天道忌盈"
     elif score >= 1.5:
-        base = "用神有根，整体可推进，但需注意忌神干扰与动变风险，稳中求进"
+        base = "用神有根，整体可推进。但需注意忌神干扰与动变风险，稳中求进、步步为营。保持警觉比盲目乐观更重要"
     elif score >= -1:
-        base = "用神力量中平，吉凶参半，宜结合现实条件审慎决策，不宜冒进"
+        base = "用神力量中平，吉凶参半。此时最考验人的判断力和耐心——不急不躁、审慎决策，做好两手准备"
     elif score >= -3:
-        base = "用神偏弱受制，阻力较大，宜先收敛观察、补足短板，不宜强推"
+        base = "用神偏弱受制，阻力较大。宜先收敛观察、补足短板。这不是放弃，而是为更好的时机积蓄力量"
     else:
-        base = "用神受制严重，所问之事不宜妄动，以静制动、隐忍待机为上"
-    if timing:
-        base += f"。{timing}"
-    return base
+        base = "用神受制严重，强行推进恐有损失。以静制动、隐忍待机不是懦弱，而是对时势的尊重。守得云开见月明"
+    return _append_timing(base)
 
 
 def interpret_hexagram(hexagram_info):
@@ -556,6 +632,14 @@ def interpret_hexagram(hexagram_info):
         tiyong_info, dong_yao, question_text, hexagram_detail,
     )
 
+    # ── 人本哲学指引 ──
+    human_guidance = build_human_guidance(
+        hexagram_name=hexagram_detail["name"],
+        ji_xiong=ji_xiong,
+        shang_gua_name=upper_gua["name"],
+        xia_gua_name=lower_gua["name"],
+    )
+
     # 世爻六亲
     shishen_liuqin = get_shishen_liuqin(zhuanggua_result)
     shishen_info = LIUQIN_XIANGYI.get(shishen_liuqin, {})
@@ -623,6 +707,9 @@ def interpret_hexagram(hexagram_info):
         "specific_judgment": specific_judgment,
         "judgment_detail": specific_judgment["detail"],
         "judgment_conclusion": specific_judgment["conclusion"],
+        # 人本哲学
+        "human_guidance": human_guidance,
+        "human_agency_reminder": HUMAN_AGENCY_REMINDER,
         "naja_analysis": zhuanggua_table,
         "naja_info": zhuanggua_result,
         "decision_suggest": specific_judgment["conclusion"],
@@ -743,7 +830,7 @@ def interpret_three_yao(three_yao_info):
     single_tiyong_tip = ""
     yao_list = three_yao_info.get("yao_list", [])
     if yao_list:
-        yao_desc = "".join(["⚊" if y == 1 else "⚋" for y in yao_list])
+        yao_desc = "".join(["——" if y == 1 else "— —" for y in yao_list])
         yao_text = "".join(["阳" if y == 1 else "阴" for y in yao_list])
         tiyong_note = f"爻象：{yao_desc}（{yao_text}）"
         if wang_shuai in ("旺", "相"):

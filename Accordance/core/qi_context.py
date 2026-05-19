@@ -149,11 +149,97 @@ def get_year_ganzhi(year):
 
     以1984年（甲子年）为基准推算。
     精确分界需要节气计算，这里提供近似值。
+
+    立春通常在2月3-5日，此处以2月4日为近似分界。
+    若需精确到时分，需要完整的节气计算模块。
     """
     base_year = 1984
     diff = year - base_year
     index = diff % 60
     return JIAZI_TABLE[index]
+
+
+def get_year_ganzhi_by_date(solar):
+    """
+    根据公历日期精确计算年干支（以立春为界做近似处理）。
+
+    立春通常在2月4日前后，此函数以2月4日为分界点。
+    若日期在2月4日之前，年干支仍属上一年。
+
+    参数：
+        solar: datetime.datetime 对象
+
+    返回：
+        str: 六十甲子年柱
+    """
+    year = solar.year
+    month = solar.month
+    day = solar.day
+
+    # 2月4日之前（不含），农历年仍属上一年
+    if month < 2 or (month == 2 and day < 4):
+        year = year - 1
+
+    return get_year_ganzhi(year)
+
+
+def get_yueling_by_solar(solar):
+    """
+    根据公历日期计算月建（以节气为近似分界）。
+
+    二十四节气中，月建从节开始：
+    立春寅月(2/4)、惊蛰卯月(3/6)、清明辰月(4/5)、
+    立夏巳月(5/6)、芒种午月(6/6)、小暑未月(7/7)、
+    立秋申月(8/7)、白露酉月(9/8)、寒露戌月(10/8)、
+    立冬亥月(11/7)、大雪子月(12/7)、小寒丑月(1/6)。
+
+    返回：
+        str: 月建地支
+    """
+    month = solar.month
+    day = solar.day
+
+    # 节气月分界（近似日期，精确到±1天）
+    jie_qi_boundaries = [
+        (1, 6, "丑"),   # 小寒
+        (2, 4, "寅"),   # 立春
+        (3, 6, "卯"),   # 惊蛰
+        (4, 5, "辰"),   # 清明
+        (5, 6, "巳"),   # 立夏
+        (6, 6, "午"),   # 芒种
+        (7, 7, "未"),   # 小暑
+        (8, 7, "申"),   # 立秋
+        (9, 8, "酉"),   # 白露
+        (10, 8, "戌"),  # 寒露
+        (11, 7, "亥"),  # 立冬
+        (12, 7, "子"),  # 大雪
+    ]
+
+    # 找到当前日期所在的月建
+    current_yueling = "寅"  # 默认值
+    for i, (m, d, yl) in enumerate(jie_qi_boundaries):
+        if (month > m) or (month == m and day >= d):
+            current_yueling = yl
+
+    return current_yueling
+
+
+def get_shichen_by_hour(hour):
+    """
+    根据小时数计算时辰序号（精确版）。
+
+    子时 23:00-00:59 → 1
+    丑时 1:00-2:59 → 2
+    ...
+    亥时 21:00-22:59 → 12
+
+    返回：
+        int: 时辰序号 (1-12)
+    """
+    shichen = ((hour + 1) // 2) % 12
+    if shichen == 0:
+        shichen = 12
+    return shichen
 
 
 def get_shichen_ganzhi(day_tiangan, shichen_num):

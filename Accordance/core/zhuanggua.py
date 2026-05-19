@@ -838,31 +838,51 @@ def format_zhuanggua_table(zhuanggua_result, dong_yao=None):
     palace_role = zhuanggua_result.get("palace_role", "未知")
     shi_pos = zhuanggua_result["shi_ying"]["shi"]
     ying_pos = zhuanggua_result["shi_ying"]["ying"]
+    xunkong_branches = zhuanggua_result.get("xunkong", {}).get("empty_branches", [])
+
+    # 八卦符号映射
+    gua_symbols = {1: "乾", 2: "兑", 3: "离", 4: "震", 5: "巽", 6: "坎", 7: "艮", 8: "坤"}
+    upper_num, lower_num = zhuanggua_result.get("hexagram_key", (0, 0))
+    upper_symbol = gua_symbols.get(upper_num, "?")
+    lower_symbol = gua_symbols.get(lower_num, "?")
 
     result = []
     for line in reversed(lines_data):
         marks = ""
         if line["is_shi"]:
-            marks += " 世"
+            marks += "◆世"
         if line["is_ying"]:
-            marks += " 应"
+            marks += "◇应"
         if line.get("is_dong"):
             marks += " →动"
-        status = " ".join(line["line_status"]) if line["line_status"] else ""
+
+        status_parts = []
+        if line.get("is_xunkong"):
+            status_parts.append("空")
+        if line.get("is_yuepo"):
+            status_parts.append("月破")
+        if line.get("is_ripo"):
+            status_parts.append("日破")
+        status = f"[{','.join(status_parts)}]" if status_parts else ""
+
+        strength = line.get("strength_level", "")
         result.append(
-            f"  {line['position_name']} {line['najia']} {line['dizhi_wuxing']} "
-            f"{line['liuqin']} {line['liushen']}{marks}  {status}"
+            f"  {line['position_name']} {line['najia']:<4} {line['dizhi_wuxing']} "
+            f"{line['liuqin']:<2} {line['liushen']:<2} {line['changsheng']:<3} "
+            f"{marks:<8} {status:<10} {strength}"
         )
 
     header = (
-        f"卦名：{hexagram_name}  卦宫：{palace_name}宫（{palace_wuxing}，{palace_role}）  "
-        f"世爻：第{shi_pos}爻  应爻：第{ying_pos}爻"
+        f"\n  {upper_symbol} {hexagram_name}  "
+        f"卦宫：{palace_name}宫（{palace_wuxing}，{palace_role}）\n"
+        f"  世爻：第{shi_pos}爻  应爻：第{ying_pos}爻  "
+        f"月建：{zhuanggua_result.get('yueling', '未知')}"
     )
     footer = (
-        f"日辰：{zhuanggua_result.get('day_ganzhi', '未知')}  "
-        f"旬空：{'、'.join(zhuanggua_result.get('xunkong', {}).get('empty_branches', [])) or '无'}  "
-        f"月建：{zhuanggua_result.get('yueling', '未知')}  "
-        f"月破：{zhuanggua_result.get('yuepo', '未知')}"
+        f"  日辰：{zhuanggua_result.get('day_ganzhi', '未知')}  "
+        f"旬空：{'、'.join(xunkong_branches) or '无'}  "
+        f"月破：{zhuanggua_result.get('yuepo', '未知') or '无'}  "
+        f"日破：{zhuanggua_result.get('ripo', '未知') or '无'}"
     )
     return "\n".join([header] + result + [footer])
 
@@ -1271,8 +1291,39 @@ def analyze_line_strength_summary(zhuanggua_result):
     return "；".join(parts)
 
 
+def _analyze_jin_tui_shen(original_dizhi, changed_dizhi):
+    """判断进神或退神。
+
+    进神：同一五行地支按顺序递增（如寅→卯，申→酉）
+    退神：同一五行地支按顺序递减（如卯→寅，酉→申）
+    地支序：寅1卯2 巳3午4 申5酉6 亥7子8 辰9戌9丑9未9
+    """
+    if not original_dizhi or not changed_dizhi:
+        return None
+
+    # 同五行地支组
+    same_element_groups = [
+        (["寅", "卯"], "木"),  # 木：寅→卯进神
+        (["巳", "午"], "火"),  # 火：巳→午进神
+        (["申", "酉"], "金"),  # 金：申→酉进神
+        (["亥", "子"], "水"),  # 水：亥→子进神
+        (["辰", "戌", "丑", "未"], "土"),  # 土四库
+    ]
+
+    for group, element in same_element_groups:
+        if original_dizhi in group and changed_dizhi in group:
+            o_idx = group.index(original_dizhi)
+            c_idx = group.index(changed_dizhi)
+            if c_idx > o_idx:
+                return f"进神（{original_dizhi}→{changed_dizhi}，{element}气渐进，事有发展壮大之势）"
+            elif c_idx < o_idx:
+                return f"退神（{original_dizhi}→{changed_dizhi}，{element}气渐退，事有收缩消退之势）"
+
+    return None
+
+
 def analyze_bian_line_relation(zhuanggua_result, bian_zhuanggua_result, dong_yao):
-    """分析动爻化出变爻后的回头生克与地支关系。"""
+    """分析动爻化出变爻后的回头生克、进神退神与地支关系。"""
     if not dong_yao or dong_yao < 1 or dong_yao > 6:
         return {
             "score": 0.0,
@@ -1286,6 +1337,14 @@ def analyze_bian_line_relation(zhuanggua_result, bian_zhuanggua_result, dong_yao
     orig_element = original.get("dizhi_wuxing", "")
     changed_element = changed.get("dizhi_wuxing", "")
     score = 0.0
+
+    # 进神退神检测
+    jin_tui = _analyze_jin_tui_shen(original.get("dizhi", ""), changed.get("dizhi", ""))
+    if jin_tui:
+        if "进神" in jin_tui:
+            score += 1.8
+        elif "退神" in jin_tui:
+            score -= 1.8
 
     if WUXING_SHENG.get(changed_element) == orig_element:
         relation = "回头生"
@@ -1320,10 +1379,11 @@ def analyze_bian_line_relation(zhuanggua_result, bian_zhuanggua_result, dong_yao
         score -= 0.6
 
     relation_text = _build_relation_text(dizhi_relations)
+    jin_tui_text = f"；{jin_tui}" if jin_tui else ""
     summary = (
         f"动爻{original['position_name']}{original['liuqin']}{original['najia']}"
         f"化{changed['liuqin']}{changed['najia']}，{relation}。{effect}；"
-        f"动变地支关系：{relation_text}；回头生克评分{score:+.1f}。"
+        f"动变地支关系：{relation_text}{jin_tui_text}；回头生克评分{score:+.1f}。"
     )
     return {
         "score": round(score, 1),
@@ -1331,6 +1391,7 @@ def analyze_bian_line_relation(zhuanggua_result, bian_zhuanggua_result, dong_yao
         "summary": summary,
         "original_line": original,
         "changed_line": changed,
+        "jin_tui_shen": jin_tui,
     }
 
 
