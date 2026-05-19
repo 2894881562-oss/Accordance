@@ -830,16 +830,7 @@ def zhuang_gua_complete(upper_num, lower_num, solar=None, lunar_info=None):
 # ------------------------------------------------------------
 
 def format_zhuanggua_table(zhuanggua_result, dong_yao=None):
-    """
-    将装卦结果格式化为可打印的表格。
-
-    参数：
-        zhuanggua_result: zhuang_gua_complete() 的返回值
-        dong_yao: 动爻位置（如有）
-
-    返回：
-        str: 格式化的装卦表字符串
-    """
+    """将装卦结果格式化为紧凑可打印的表格。"""
     lines_data = zhuanggua_result["lines"]
     hexagram_name = zhuanggua_result["hexagram_name"]
     palace_name = zhuanggua_result["palace_name"]
@@ -848,73 +839,32 @@ def format_zhuanggua_table(zhuanggua_result, dong_yao=None):
     shi_pos = zhuanggua_result["shi_ying"]["shi"]
     ying_pos = zhuanggua_result["shi_ying"]["ying"]
 
-    # 爻位顺序从上到下显示（上爻→初爻）
     result = []
-    result.append("┌──────┬──────────┬────┬────┬────────┬────────┬──────────┬────┐")
-    result.append("│ 爻位 │ 纳甲干支 │ 天干│地支│ 地支五行│  六亲  │  六神    │ 世应│")
-    result.append("├──────┼──────────┼────┼────┼────────┼────────┼──────────┼────┤")
-
     for line in reversed(lines_data):
-        pos = line["position"]
-        shi_ying_mark = ""
+        marks = ""
         if line["is_shi"]:
-            shi_ying_mark = "世"
+            marks += " 世"
         if line["is_ying"]:
-            shi_ying_mark = "应"
-
-        dong_mark = " →动" if line.get("is_dong") else ""
-        liuqin_display = line["liuqin"] + dong_mark
-
+            marks += " 应"
+        if line.get("is_dong"):
+            marks += " →动"
+        status = " ".join(line["line_status"]) if line["line_status"] else ""
         result.append(
-            f"│ {line['position_name']:4s} │ "
-            f"{line['najia']:8s} │ "
-            f"{line['tiangan']:2s}  │ "
-            f"{line['dizhi']:2s}  │ "
-            f"{line['dizhi_wuxing']:6s} │ "
-            f"{liuqin_display:6s} │ "
-            f"{line['liushen']:8s} │ "
-            f"{shi_ying_mark:2s}  │"
+            f"  {line['position_name']} {line['najia']} {line['dizhi_wuxing']} "
+            f"{line['liuqin']} {line['liushen']}{marks}  {status}"
         )
 
-    result.append("└──────┴──────────┴────┴────┴────────┴────────┴──────────┴────┘")
-    result.append("")
-    result.append(f"卦名：{hexagram_name}    卦宫：{palace_name}宫（{palace_wuxing}，{palace_role}）")
-    result.append(f"世爻：第{shi_pos}爻    应爻：第{ying_pos}爻")
-    result.append(
-        f"日辰：{zhuanggua_result.get('day_ganzhi', '未知')}    "
-        f"旬空：{'、'.join(zhuanggua_result.get('xunkong', {}).get('empty_branches', [])) or '未知'}    "
-        f"月建：{zhuanggua_result.get('yueling', '未知')}    "
-        f"月破：{zhuanggua_result.get('yuepo', '未知')}    "
-        f"日破：{zhuanggua_result.get('ripo', '未知')}"
+    header = (
+        f"卦名：{hexagram_name}  卦宫：{palace_name}宫（{palace_wuxing}，{palace_role}）  "
+        f"世爻：第{shi_pos}爻  应爻：第{ying_pos}爻"
     )
-
-    # 十二长生行
-    cs_list = [f"{line['changsheng']}({line['changsheng_power']:+g})" for line in reversed(lines_data)]
-    result.append(f"十二长生（自上而下）：{' | '.join(cs_list)}")
-
-    nayin_list = [
-        f"{line['position_name']}:{line['nayin']}({line['nayin_wuxing']})"
-        for line in reversed(lines_data)
-    ]
-    result.append(f"纳音五行（自上而下）：{' | '.join(nayin_list)}")
-
-    status_list = []
-    for line in reversed(lines_data):
-        status = "、".join(line["line_status"]) if line["line_status"] else "无"
-        month_relation = _build_relation_text(line["month_relations"])
-        day_relation = _build_relation_text(line["day_relations"])
-        status_list.append(
-            f"{line['position_name']}:{status}; 月{month_relation}; 日{day_relation}"
-        )
-    result.append(f"旬空/月日/刑冲合害：{' | '.join(status_list)}")
-
-    strength_list = [
-        f"{line['position_name']}:{line.get('strength_level', '未评')}{line.get('strength_score', 0):+.1f}"
-        for line in reversed(lines_data)
-    ]
-    result.append(f"综合爻力（自上而下）：{' | '.join(strength_list)}")
-
-    return "\n".join(result)
+    footer = (
+        f"日辰：{zhuanggua_result.get('day_ganzhi', '未知')}  "
+        f"旬空：{'、'.join(zhuanggua_result.get('xunkong', {}).get('empty_branches', [])) or '无'}  "
+        f"月建：{zhuanggua_result.get('yueling', '未知')}  "
+        f"月破：{zhuanggua_result.get('yuepo', '未知')}"
+    )
+    return "\n".join([header] + result + [footer])
 
 
 # ------------------------------------------------------------

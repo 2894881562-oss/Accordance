@@ -1,12 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 六爻详占模块
-
 适合重大决策、趋势判断、前因后果分析。
-
-当前版本：
-使用动态时间起卦法，整合完整的京房纳甲装卦、
-梅花易数体用分析、互错综卦等多维传统术数体系。
+整合京房纳甲筮法 + 梅花易数体用体系。
 """
 
 from core.divination import dynamic_time_qi_gua
@@ -15,22 +11,18 @@ from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
 from core.question_history import handle_duplicate_check, record_question
 
 
-def print_separator():
-    print("=" * 70)
+def _sep(char="─", width=62):
+    print(char * width)
 
 
 def run_full_divination():
     """运行六爻详占流程"""
-
-    print_separator()
-    print("【六爻详占】")
-    print("说明：本功能采用京房纳甲筮法 + 梅花易数体用体系。")
-    print("包含完整装卦、世应、六亲、六神、十二长生、互错综卦、体用生克分析。")
-    print("同一问题在不同起卦瞬间可能得到不同结果，但并非纯随机。")
-    print_separator()
+    print()
+    _sep("═")
+    print("  六爻详占 · 京房纳甲筮法 + 梅花易数体用")
+    _sep("═")
 
     question = input("请输入你所问之事：").strip()
-
     if not question:
         question = "未命名问题"
 
@@ -38,122 +30,129 @@ def run_full_divination():
     if not should_proceed:
         return
 
-    external_omen = input("若起卦前后有明显外应（声音、言语、物象、突发事件等）请输入，无则回车：").strip()
-
-    focus_info = collect_focus_seed(
-        "请静心凝神，专注于所问之事。准备好后，按回车确认起卦..."
-    )
+    external_omen = input("若有外应请输入，无则回车：").strip()
+    focus_info = collect_focus_seed("请静心凝神，专注于所问之事。准备好后按回车起卦...")
 
     hexagram_info = dynamic_time_qi_gua(
-        question=question,
-        mode="full",
+        question=question, mode="full",
         extra_text=f"六爻详占|外应:{external_omen}",
-        focus_seed=focus_info["focus_seed"]
+        focus_seed=focus_info["focus_seed"],
     )
     hexagram_info["external_omen"] = external_omen
-
-    interpret_result = interpret_hexagram(hexagram_info)
+    result = interpret_hexagram(hexagram_info)
 
     record_question(
         question, "六爻详占",
-        f"{interpret_result['gua_name']}（{interpret_result['ji_xiong']}），"
-        f"体用：{interpret_result.get('tiyong_info', {}).get('relation', '未知')}"
+        f"{result['gua_name']}（{result['ji_xiong']}），"
+        f"体用：{result.get('tiyong_info', {}).get('relation', '未知')}"
     )
 
-    # ========== 卦象基本 ==========
-    print_separator()
-    print("【起卦结果】")
-    print(f"卦名：{interpret_result['gua_name']}")
-    print(f"卦辞：{interpret_result['gua_ci']}")
-    print(f"吉凶等级：{interpret_result['ji_xiong']}")
-    print(f"核心意象：{'、'.join(interpret_result['core_meaning'])}")
+    tiyong = result.get("tiyong_info", {})
+    j = result  # shorthand
 
-    # ========== 体用分析 ==========
-    print_separator()
-    print("【体用生克分析（梅花易数）】")
-    print(interpret_result['tiyong_tip'])
-
-    # ========== 五行生克 ==========
-    print_separator()
-    print("【五行生克与旺衰】")
-    print(interpret_result['qian_yin_hou_guo'])
-    print(interpret_result['sheng_ke_analysis'])
-    print(interpret_result['wang_shuai_analysis'])
-
-    # ========== 动爻与变卦 ==========
-    print_separator()
-    print("【动爻与变卦】")
-    print(interpret_result['dong_yao_tip'])
-    if interpret_result.get("yao_ci_tip"):
-        print(interpret_result['yao_ci_tip'])
-    if interpret_result.get("bian_gua_tip"):
-        print(interpret_result['bian_gua_tip'])
-
-    # ========== 互卦 ==========
-    print_separator()
-    print("【互卦 · 过程视角】")
-    print(interpret_result['hu_gua_tip'])
-    print(interpret_result['hu_cuo_zong_tip'])
-
-    # ========== 错卦/综卦 ==========
-    print_separator()
-    print("【错卦 · 反面视角】")
-    print(interpret_result['cuo_gua_tip'])
+    # ===== 卦象概要 =====
     print()
-    print("【综卦 · 换位视角】")
-    print(interpret_result['zong_gua_tip'])
+    _sep("━")
+    print(f"  【{j['gua_name']}】  {j['ji_xiong']}  |  "
+          f"体用：{tiyong.get('relation', '')}（{tiyong.get('relation_desc', '')}）")
+    _sep("━")
+    print(f"  卦辞：{j['gua_ci']}")
+    print(f"  卦意：{'、'.join(j['core_meaning'][:4])}")
+    print(f"  问题：{question}")
+    print()
 
-    # ========== 完整装卦表（纳甲） ==========
-    print_separator()
-    print("【六爻纳甲装卦表（京房筮法）】")
-    print(interpret_result['zhuanggua_table'])
+    # ===== 纳甲装卦（精简表） =====
+    print("  【纳甲装卦】")
+    lines = j['zhuanggua_result']['lines']
+    for line in reversed(lines):
+        marks = ""
+        if line["is_shi"]:
+            marks += " 世"
+        if line["is_ying"]:
+            marks += " 应"
+        if line.get("is_dong"):
+            marks += " →动"
+        status = ""
+        if line.get("line_status"):
+            status = f"  [{','.join(line['line_status'])}]"
+        print(f"  {line['position_name']}  {line['najia']}  {line['dizhi_wuxing']}  "
+              f"{line['liuqin']}  {line['liushen']}{marks}{status}")
+    print()
 
-    print_separator()
-    print("【空破刑冲与纳音力量】")
-    print(interpret_result['line_strength_summary'])
-    print(interpret_result['bian_line_relation_tip'])
-    print(interpret_result['dizhi_relation_summary'])
-    print(interpret_result['nayin_summary'])
-    print(interpret_result['liushen_zhihua_summary'])
+    zg = j['zhuanggua_result']
+    print(f"  世爻：第{zg['shi_ying']['shi']}爻  |  "
+          f"应爻：第{zg['shi_ying']['ying']}爻  |  "
+          f"卦宫：{zg['palace_name']}宫（{zg['palace_wuxing']}，{zg.get('palace_role', '')}）")
+    print(f"  日辰：{zg.get('day_ganzhi', '未知')}  |  "
+          f"旬空：{'、'.join(zg.get('xunkong', {}).get('empty_branches', [])) or '无'}  |  "
+          f"月建：{zg.get('yueling', '未知')}  |  "
+          f"月破：{zg.get('yuepo', '未知')}  |  "
+          f"日破：{zg.get('ripo', '未知')}")
+    print()
 
-    # ========== 六亲格局 ==========
-    print_separator()
-    print("【用神与六亲格局分析】")
-    print(interpret_result['yongshen_system_summary'])
-    print(interpret_result['liuqin_summary'])
-    if interpret_result.get("dong_yao_liuqin_tip"):
-        print(interpret_result['dong_yao_liuqin_tip'])
-    if interpret_result.get("liuqin_interpretation"):
-        print(interpret_result['liuqin_interpretation'])
+    # ===== 动变与互错综 =====
+    print(f"  【动爻】{j['dong_yao_tip']}")
+    print(f"  {j['yao_ci_tip']}")
+    print(f"  {j['bian_gua_tip']}")
+    print()
+    print(f"  【互卦】{j['hu_gua_tip']}")
+    print(f"  【错卦】{j['cuo_gua_tip']}")
+    print(f"  【综卦】{j['zong_gua_tip']}")
+    print()
 
-    # ========== 六亲象义 ==========
-    if interpret_result.get("shishen_info"):
-        shishen = interpret_result.get("shishen_liuqin", "")
-        shishen_info = interpret_result.get("shishen_info", {})
+    # ===== 体用生克 =====
+    print(f"  【体用】{tiyong.get('relation', '')} — {tiyong.get('relation_desc', '')}")
+    print(f"  【五行】{j['sheng_ke_analysis']}")
+    print(f"  【旺衰】{j['wang_shuai_analysis']}")
+    print()
+
+    # ===== 用神分析 =====
+    print(f"  【用神分析】")
+    print(f"  {j['yongshen_system_summary']}")
+    print()
+
+    # ===== 动变回头生克 =====
+    print(f"  【动变回头】{j['bian_line_relation_tip']}")
+    print()
+
+    # ===== 六亲格局 =====
+    if j.get("liuqin_interpretation"):
+        print(f"  【六亲格局】{j['liuqin_interpretation']}")
         print()
-        print(f"世爻六亲「{shishen}」象义：{shishen_info.get('description', '')}")
-        print(f"所主：{'、'.join(shishen_info.get('zhu_xiang', []))}")
 
-    # ========== 气机 ==========
-    print_separator()
-    print("【气机信息】")
-    print(f"日干支：{get_accurate_day_ganzhi()}")
-    print(f"人念停顿：{focus_info['focus_seconds']:.3f} 秒")
-    print(f"气机种子：{hexagram_info['qi_seed']}")
-
-    print_separator()
-    print("【外应参考（梅花克应）】")
-    print(interpret_result['external_omen_tip'])
-
-    # ========== 决策建议 ==========
-    print_separator()
-    print(f"【综合决策建议】")
-    print(interpret_result['traditional_evidence_chain'])
+    # ===== 爻力 =====
+    print(f"  【爻力概要】{j['line_strength_summary']}")
     print()
-    print(interpret_result['decision_suggest'])
-    print_separator()
-    print("【使用提醒】")
-    print("1. 以上六爻纳甲装卦按京房正统筮法规则排列")
-    print("2. 体用生克出自梅花易数体系，六亲六神出自纳甲筮法")
-    print("3. 本系统仅为传统文化研究与决策参考，不替代现实分析")
-    print_separator()
+
+    # ===== 六神制化 =====
+    print(f"  【六神制化】{j['liushen_zhihua_summary']}")
+    print()
+
+    # ===== 地支关系 =====
+    print(f"  【地支关系】{j['dizhi_relation_summary']}")
+    print()
+
+    # ===== 外应 =====
+    omen = j.get("external_omen_tip", "")
+    if omen:
+        print(f"  【外应】{omen}")
+        print()
+
+    # ===== 综合断语（核心） =====
+    _sep("═")
+    print(f"  【断语】")
+    print(f"  {j['judgment_detail']}")
+    print()
+    print(f"  ▶ {j['judgment_conclusion']}")
+    _sep("═")
+
+    # ===== 气机信息 =====
+    print(f"  日干支：{get_accurate_day_ganzhi()}  |  "
+          f"人念：{focus_info['focus_seconds']:.2f}秒  |  "
+          f"种子：{hexagram_info['qi_seed']}")
+    print()
+
+    # ===== 提醒 =====
+    print(f"  【提醒】本系统仅为传统文化研究参考，不替代现实判断。")
+    _sep("═")
+    print()
