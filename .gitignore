@@ -24,6 +24,9 @@ dist/
 .vscode/
 *.iml
 
+# Local AI tool settings
+**/.claude/settings.local.json
+
 # Local environment and secrets
 .env
 .env.*
