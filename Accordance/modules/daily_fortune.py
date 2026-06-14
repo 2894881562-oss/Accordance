@@ -39,6 +39,7 @@ def run_daily_fortune():
           f"季节：{lunar['season']}")
     print(f"  当日主卦：【{r['gua_name']}】{r['ji_xiong']}")
     print(f"  基调：{'、'.join(r['core_meaning'][:3])}")
+    print(f"  校准：{r['calibration_tip']}")
     print(f"  卦辞：{r['gua_ci']}")
     if r.get("daxiang"):
         print(f"  大象：{r['daxiang']}")

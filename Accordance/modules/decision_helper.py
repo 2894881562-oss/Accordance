@@ -139,6 +139,7 @@ def _print_option(label, name, r):
     _sep("━")
     print(f"  卦辞：{r['gua_ci']}")
     print(f"  卦意：{'、'.join(r['core_meaning'][:3])}")
+    print(f"  校准：{r['calibration_tip']}")
     if r.get("daxiang"):
         print(f"  大象：{r['daxiang']}")
     print(f"  体用：{tiyong.get('relation', '')} — {tiyong.get('relation_desc', '')}")
@@ -197,14 +198,16 @@ def _compare(option_a, score_a, r_a, option_b, score_b, r_b):
     print(r_a.get("human_agency_reminder", ""))
 
 
-def run_decision_helper():
+def run_decision_helper(prefilled_question=None):
     """运行二选一决策辅助流程"""
     print()
     _sep("═")
     print("  二选一决策辅助 · 梅花体用 + 纳甲用神 + 风险分析")
     _sep("═")
 
-    question = input("请输入你要决策的问题：").strip() or "未命名问题"
+    question = (prefilled_question or "").strip()
+    if not question:
+        question = input("请输入你要决策的问题：").strip() or "未命名问题"
     option_a = input("请输入选项A：").strip() or "选项A"
     option_b = input("请输入选项B：").strip() or "选项B"
 

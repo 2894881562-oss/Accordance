@@ -2,6 +2,7 @@
 """解卦核心逻辑。整合京房纳甲、梅花易数体用、互错综卦等多维分析。"""
 
 from config.hexagram_data import HEXAGRAM_DATA, JI_XIONG_LEVEL
+from config.hexagram_calibration import get_hexagram_calibration, build_calibration_tip
 from config.wuxing_rules import (
     WUXING_SHENG, WUXING_KE, WUXING_WANG_SHUAI,
 )
@@ -677,6 +678,8 @@ def interpret_hexagram(hexagram_info):
     sheng_ke_text = _join_relation(sheng_relation, ke_relation, bihe_relation)
     ji_xiong = hexagram_detail.get("ji_xiong", "中中卦")
     ji_xiong_score = JI_XIONG_LEVEL.get(ji_xiong, 3)
+    hexagram_calibration = get_hexagram_calibration(hexagram_detail["name"])
+    calibration_tip = build_calibration_tip(hexagram_detail["name"])
 
     # --- 动爻与变卦 ---
     dong_yao_meaning = {
@@ -816,6 +819,8 @@ def interpret_hexagram(hexagram_info):
         "gua_name": hexagram_detail["name"],
         "gua_ci": hexagram_detail["gua_ci"],
         "core_meaning": hexagram_detail["core_meaning"],
+        "hexagram_calibration": hexagram_calibration,
+        "calibration_tip": calibration_tip,
         "ji_xiong": ji_xiong,
         "ji_xiong_score": ji_xiong_score,
         # 五行

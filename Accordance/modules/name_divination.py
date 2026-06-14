@@ -47,6 +47,7 @@ def run_name_divination():
     _sep("━")
     print(f"  卦辞：{r['gua_ci']}")
     print(f"  卦意：{'、'.join(r['core_meaning'][:4])}")
+    print(f"  校准：{r['calibration_tip']}")
     if r.get("daxiang"):
         print(f"  大象：{r['daxiang']}")
     print()

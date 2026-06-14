@@ -15,14 +15,16 @@ def _sep(char="─", width=62):
     print(char * width)
 
 
-def run_full_divination():
+def run_full_divination(prefilled_question=None):
     """运行六爻详占流程"""
     print()
     _sep("═")
     print("  六爻详占 · 京房纳甲筮法 + 梅花易数体用")
     _sep("═")
 
-    question = input("请输入你所问之事：").strip()
+    question = (prefilled_question or "").strip()
+    if not question:
+        question = input("请输入你所问之事：").strip()
     if not question:
         question = "未命名问题"
 
@@ -58,6 +60,7 @@ def run_full_divination():
     _sep("━")
     print(f"  卦辞：{j['gua_ci']}")
     print(f"  卦意：{'、'.join(j['core_meaning'][:4])}")
+    print(f"  校准：{j['calibration_tip']}")
     if j.get("daxiang"):
         print(f"  大象：{j['daxiang']}")
     if j.get("tuanzhuan"):

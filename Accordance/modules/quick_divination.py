@@ -15,14 +15,16 @@ def _sep(char="─", width=62):
     print(char * width)
 
 
-def run_quick_divination():
+def run_quick_divination(prefilled_question=None):
     """运行三爻快占流程"""
     print()
     _sep("═")
     print("  三爻快占")
     _sep("═")
 
-    question = input("请输入你所问之事：").strip()
+    question = (prefilled_question or "").strip()
+    if not question:
+        question = input("请输入你所问之事：").strip()
     if not question:
         question = "未命名问题"
 
