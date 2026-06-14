@@ -8,6 +8,7 @@
 from core.divination import dynamic_three_yao_quick_divination
 from core.interpretation import interpret_three_yao
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
+from core.question_precheck import build_question_profile, format_question_profile
 from core.question_history import handle_duplicate_check, record_question
 
 
@@ -31,6 +32,10 @@ def run_quick_divination(prefilled_question=None):
     should_proceed, question = handle_duplicate_check(question, "三爻快占")
     if not should_proceed:
         return
+
+    question_profile = build_question_profile(question, current_method_key="quick")
+    print()
+    print(format_question_profile(question_profile))
 
     external_omen = input("若有外应请输入，无则回车：").strip()
     focus_info = collect_focus_seed("请专注于核心问题。准备好后按回车起卦...")

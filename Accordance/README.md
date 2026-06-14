@@ -30,7 +30,7 @@ core/                    核心逻辑
   qi_context.py               气机计算（精确日干支、旬空、月建、时干支）
   question_history.py         问题历史（持久化 + 中文语义去重 + 分层拦截 + 记录压缩）
   method_selector.py          起卦法选择器
-  rule_audit.py               纳甲、八宫、世应与象义校准自检
+  question_precheck.py        起卦前问事校准（问类/用神/方法边界）
 
 modules/                 功能模块
   full_divination.py          六爻详占
@@ -40,7 +40,6 @@ modules/                 功能模块
   item_search.py              寻物专项
   decision_helper.py          二选一决策
   method_selector.py          起卦法选择器 CLI
-  rule_audit.py               规则自检 CLI
 
 main.py                  命令行主入口
 ```

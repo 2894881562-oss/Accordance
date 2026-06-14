@@ -8,6 +8,7 @@
 from core.divination import get_lunar_time
 from core.interpretation import interpret_hexagram
 from core.qi_context import get_accurate_day_ganzhi
+from core.question_precheck import build_question_profile, format_question_profile
 from core.question_history import handle_duplicate_check, record_question
 from config.bagua_data import BAGUA_DATA
 from config.hexagram_data import HEXAGRAM_DATA
@@ -214,6 +215,10 @@ def run_decision_helper(prefilled_question=None):
     should_proceed, question = handle_duplicate_check(question, "二选一决策")
     if not should_proceed:
         return
+
+    question_profile = build_question_profile(question, current_method_key="decision")
+    print()
+    print(format_question_profile(question_profile))
 
     print()
     print(f"  问题：{question}")

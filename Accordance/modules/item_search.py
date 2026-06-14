@@ -4,6 +4,7 @@
 from core.divination import dynamic_three_yao_quick_divination
 from core.interpretation import interpret_three_yao
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
+from core.question_precheck import build_question_profile, format_question_profile
 from core.question_history import handle_duplicate_check, record_question
 
 
@@ -107,6 +108,10 @@ def run_item_search():
     should_proceed, question_text = handle_duplicate_check(question_text, "寻物专项占")
     if not should_proceed:
         return
+
+    question_profile = build_question_profile(question_text, current_method_key="item")
+    print()
+    print(format_question_profile(question_profile))
 
     extra_text = f"{item_name}|{last_place}|{item_feature}|范围:{search_scope}|外应:{external_omen}"
     three_yao_info = dynamic_three_yao_quick_divination(

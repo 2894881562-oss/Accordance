@@ -8,6 +8,7 @@
 from core.divination import dynamic_time_qi_gua
 from core.interpretation import interpret_hexagram
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
+from core.question_precheck import build_question_profile, format_question_profile
 from core.question_history import handle_duplicate_check, record_question
 
 
@@ -31,6 +32,10 @@ def run_full_divination(prefilled_question=None):
     should_proceed, question = handle_duplicate_check(question, "六爻详占")
     if not should_proceed:
         return
+
+    question_profile = build_question_profile(question, current_method_key="full")
+    print()
+    print(format_question_profile(question_profile))
 
     external_omen = input("若有外应请输入，无则回车：").strip()
     focus_info = collect_focus_seed("请静心凝神，专注于所问之事。准备好后按回车起卦...")
