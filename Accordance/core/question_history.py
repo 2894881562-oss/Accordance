@@ -5,8 +5,8 @@
 基于蒙卦"初筮告，再三渎，渎则不告"的术数原则：
 1. 同一会话/跨会话检测重复或高度相似问题
 2. 中文语义级相似度（二元Jaccard + 核心词 + 同义词扩展）
-3. 基于真实时间跨度的分级拦截（7天/15天/节气）
-4. JSON 文件持久化，关程序重开仍然有效
+3. 基于问题相似度与真实时间跨度的分层拦截（同题/高度相似/近似相关）
+4. JSON 文件紧凑持久化，关程序重开仍然有效
 """
 
 import time
@@ -29,6 +29,40 @@ def _data_dir():
 
 
 HISTORY_FILE = os.path.join(_data_dir(), "question_history.json")
+HISTORY_SCHEMA_VERSION = 2
+MAX_HISTORY_ENTRIES = 120
+MAX_HISTORY_BYTES = 96 * 1024
+MAX_QUESTION_CHARS = 120
+MAX_SUMMARY_CHARS = 120
+MAX_MODULE_CHARS = 24
+
+
+SIMILARITY_BANDS = [
+    {
+        "key": "same",
+        "min_score": 0.96,
+        "name": "同题复问",
+        "block_days": 15,
+        "warn_days": 30,
+        "msg": "问题几乎完全相同，应以初筮为准。未过一节气前不宜再起同题。",
+    },
+    {
+        "key": "high",
+        "min_score": 0.78,
+        "name": "高度相似",
+        "block_days": 7,
+        "warn_days": 15,
+        "msg": "问题主体、对象与意图高度接近，七日内视为重复问。",
+    },
+    {
+        "key": "related",
+        "min_score": 0.62,
+        "name": "近似相关",
+        "block_days": 0,
+        "warn_days": 7,
+        "msg": "问题不是完全重复，但核心对象或意图相近，短期内应先核对前卦。",
+    },
+]
 
 
 # ═══════════════════════════════════════════════════════════
@@ -131,6 +165,35 @@ def _extract_core_words(text):
     return result
 
 
+def _matched_synonym_reps(text):
+    """返回文本命中的同义词组代表词集合。"""
+    reps = set()
+    for word in sorted(_WORD_TO_GROUP.keys(), key=len, reverse=True):
+        if word in text:
+            reps.add(SYNONYM_GROUPS[_WORD_TO_GROUP[word]][0])
+    return reps
+
+
+def _extract_semantic_tokens(text):
+    """提取更稳定的语义 token，用于相似问题判断。"""
+    normalized = _normalize(text)
+    tokens = set(_extract_core_words(normalized))
+    tokens.update(_matched_synonym_reps(normalized))
+
+    # 保留连续中文词片，提升“同一对象”识别能力。
+    cjk_runs = re.findall(r"[\u4e00-\u9fff]{2,8}", normalized)
+    for run in cjk_runs:
+        if len(run) <= 4:
+            tokens.add(run)
+        else:
+            for i in range(len(run) - 1):
+                tokens.add(run[i:i + 2])
+            for i in range(len(run) - 2):
+                tokens.add(run[i:i + 3])
+
+    return {token for token in tokens if token and token not in STOP_CHARS}
+
+
 # ═══════════════════════════════════════════════════════════
 # 4. 相似度计算
 # ═══════════════════════════════════════════════════════════
@@ -197,12 +260,17 @@ def _question_similarity(text1, text2):
     syn_bg2 = _char_bigrams(syn2)
     syn_score = _jaccard(syn_bg1, syn_bg2) * 1.3
 
-    # 策略4：核心词重叠率
-    cw1 = set(_extract_core_words(n1))
-    cw2 = set(_extract_core_words(n2))
+    # 策略4：语义 token 重叠率
+    cw1 = _extract_semantic_tokens(n1)
+    cw2 = _extract_semantic_tokens(n2)
     core_score = _jaccard(cw1, cw2) if cw1 and cw2 else 0.0
 
-    # 策略5：原始二元 Jaccard（兜底）
+    # 策略5：同义词组代表词重叠。命中同一问类时，短句也能识别相近。
+    reps1 = _matched_synonym_reps(n1)
+    reps2 = _matched_synonym_reps(n2)
+    synonym_overlap = _jaccard(reps1, reps2) if reps1 and reps2 else 0.0
+
+    # 策略6：原始二元 Jaccard（兜底）
     bg1 = _char_bigrams(n1)
     bg2 = _char_bigrams(n2)
     raw_score = _jaccard(bg1, bg2)
@@ -211,6 +279,7 @@ def _question_similarity(text1, text2):
     final = max(
         syn_score,
         core_score * 0.95,
+        synonym_overlap * 0.82,
         raw_score * 0.7,
     )
 
@@ -259,43 +328,118 @@ def _days_since_jieqi(target_date):
 
 
 # ═══════════════════════════════════════════════════════════
-# 6. 时间规则定义
+# 6. 分层复问判定
 # ═══════════════════════════════════════════════════════════
 
-# 时间规则（按重复间隔分级）
-TIME_RULES = {
-    "block": {
-        "days": 7,
-        "name": "七日来复",
-        "source": "复卦：反复其道，七日来复",
-        "action": "拦截",
-        "msg": "同一问题在7天内重复起卦，卦气未换，心念未新，强烈建议等待。",
-    },
-    "warn": {
-        "days": 15,
-        "name": "一节气",
-        "source": "节气轮转，气机已换",
-        "action": "警告",
-        "msg": "间隔超过7天但不足一节气（约15天），气机初换，勉强可问，但结果参考价值仍有限。",
-    },
-    "allow": {
-        "days": 99999,
-        "name": "完全放行",
-        "source": "时间充足，视为新问",
-        "action": "放行",
-        "msg": "",
-    },
-}
+def _similarity_band(score):
+    """按相似度返回分层规则。"""
+    for band in SIMILARITY_BANDS:
+        if score >= band["min_score"]:
+            return band
+    return None
 
 
-def _classify_time_interval(days):
-    """根据天数间隔返回时间规则分类。"""
-    if days < TIME_RULES["block"]["days"]:
-        return "block"
-    elif days < TIME_RULES["warn"]["days"]:
-        return "warn"
-    else:
-        return "allow"
+def _classify_repeat(score, days):
+    """综合相似度与间隔，返回处理动作与分层规则。"""
+    band = _similarity_band(score)
+    if not band:
+        return "none", None
+    if days < band["block_days"]:
+        return "block", band
+    if days < band["warn_days"]:
+        return "warn", band
+    return "allow", band
+
+
+def _format_elapsed(days):
+    """把天数间隔格式化为更容易理解的文本。"""
+    if days < 1 / 24:
+        return f"{max(1, round(days * 24 * 60))}分钟"
+    if days < 1:
+        return f"{days * 24:.1f}小时"
+    if days < 30:
+        return f"{days:.1f}天"
+    if days < 365:
+        return f"{days / 30:.1f}个月"
+    return f"{days / 365:.1f}年"
+
+
+def _remaining_wait(days, target_days):
+    """计算还需等待多久。"""
+    remain = max(0.0, target_days - days)
+    return _format_elapsed(remain)
+
+
+def _truncate_text(text, limit):
+    """限制字段长度，避免历史文件无限膨胀。"""
+    text = (text or "").strip()
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 1)] + "…"
+
+
+def _compact_entry(entry):
+    """兼容旧格式并压缩单条历史记录。"""
+    timestamp = entry.get("t", entry.get("timestamp", 0))
+    try:
+        timestamp = float(timestamp)
+    except (TypeError, ValueError):
+        timestamp = 0
+
+    if not timestamp:
+        dt_text = entry.get("dt") or entry.get("datetime", "")
+        try:
+            timestamp = datetime.datetime.strptime(dt_text, "%Y-%m-%d %H:%M:%S").timestamp()
+        except (TypeError, ValueError):
+            timestamp = time.time()
+
+    dt = entry.get("dt") or entry.get("datetime") or datetime.datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
+    return {
+        "v": HISTORY_SCHEMA_VERSION,
+        "q": _truncate_text(entry.get("q") or entry.get("question", ""), MAX_QUESTION_CHARS),
+        "m": _truncate_text(entry.get("m") or entry.get("module", ""), MAX_MODULE_CHARS),
+        "t": round(timestamp, 3),
+        "dt": dt,
+        "r": _truncate_text(entry.get("r") or entry.get("result_summary", ""), MAX_SUMMARY_CHARS),
+    }
+
+
+def _entry_question(entry):
+    return entry.get("q") or entry.get("question", "")
+
+
+def _entry_module(entry):
+    return entry.get("m") or entry.get("module", "未知")
+
+
+def _entry_datetime(entry):
+    return entry.get("dt") or entry.get("datetime", "未知时间")
+
+
+def _entry_result(entry):
+    return entry.get("r") or entry.get("result_summary", "无记录")
+
+
+def _entry_timestamp(entry):
+    try:
+        return float(entry.get("t", entry.get("timestamp", 0)))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _json_size(history):
+    return len(json.dumps(history, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
+
+
+def _compact_history(history):
+    """按条数和字节数裁剪历史。"""
+    compacted = [_compact_entry(entry) for entry in history if isinstance(entry, dict)]
+    compacted.sort(key=_entry_timestamp)
+    if len(compacted) > MAX_HISTORY_ENTRIES:
+        compacted = compacted[-MAX_HISTORY_ENTRIES:]
+    while compacted and _json_size(compacted) > MAX_HISTORY_BYTES:
+        compacted = compacted[1:]
+    return compacted
 
 
 # ═══════════════════════════════════════════════════════════
@@ -310,7 +454,7 @@ class QuestionHistory:
     自动从文件加载，每次记录后自动保存。
     """
 
-    def __init__(self, similarity_threshold=0.58):
+    def __init__(self, similarity_threshold=SIMILARITY_BANDS[-1]["min_score"]):
         self._threshold = similarity_threshold
         self._history = []
         self._loaded = False
@@ -319,21 +463,26 @@ class QuestionHistory:
         """惰性加载历史文件。"""
         if self._loaded:
             return
+        should_migrate = False
         try:
             if os.path.exists(HISTORY_FILE):
                 with open(HISTORY_FILE, "r", encoding="utf-8") as f:
                     raw = json.load(f)
                 if isinstance(raw, list):
-                    self._history = raw
+                    self._history = _compact_history(raw)
+                    should_migrate = raw != self._history
         except (json.JSONDecodeError, IOError, OSError):
             self._history = []
         self._loaded = True
+        if should_migrate:
+            self._save()
 
     def _save(self):
-        """保存到磁盘。"""
+        """保存到磁盘，并控制历史文件体积。"""
+        self._history = _compact_history(self._history)
         try:
             with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-                json.dump(self._history, f, ensure_ascii=False, indent=2)
+                json.dump(self._history, f, ensure_ascii=False, separators=(",", ":"))
         except (IOError, OSError):
             pass
 
@@ -341,27 +490,31 @@ class QuestionHistory:
         """
         检查当前问题是否与历史记录重复/高度相似。
 
-        返回 (is_duplicate, matched_entry_or_None, similarity_score, time_category)
+        返回 (is_duplicate, matched_entry_or_None, similarity_score, action, days, band)
         """
         self._ensure_loaded()
         best_match = None
         best_score = 0.0
 
         for entry in self._history:
-            sim = _question_similarity(question, entry.get("question", ""))
+            prev_question = _entry_question(entry)
+            if not prev_question:
+                continue
+            sim = _question_similarity(question, prev_question)
             if sim > best_score:
                 best_score = sim
                 best_match = entry
 
         if best_score >= self._threshold and best_match:
-            # 计算时间间隔
-            prev_ts = best_match.get("timestamp", 0)
+            # 计算时间间隔，并按相似度层级给出不同的拦截/提醒窗口。
+            prev_ts = _entry_timestamp(best_match)
             now_ts = time.time()
-            days_elapsed = (now_ts - prev_ts) / 86400.0
-            time_cat = _classify_time_interval(days_elapsed)
-            return True, best_match, round(best_score, 2), time_cat, round(days_elapsed, 1)
+            days_elapsed = max(0.0, (now_ts - prev_ts) / 86400.0)
+            action, band = _classify_repeat(best_score, days_elapsed)
+            if band:
+                return True, best_match, round(best_score, 2), action, round(days_elapsed, 1), band
 
-        return False, None, 0.0, "", 0.0
+        return False, None, 0.0, "", 0.0, None
 
     def add_question(self, question, module_name, result_summary):
         """记录一次起卦并持久化。"""
@@ -373,10 +526,8 @@ class QuestionHistory:
             "datetime": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "result_summary": result_summary,
         }
-        self._history.append(entry)
-        # 保留最近200条，防止文件无限膨胀
-        if len(self._history) > 200:
-            self._history = self._history[-200:]
+        self._history.append(_compact_entry(entry))
+        self._history = _compact_history(self._history)
         self._save()
 
     def get_recent(self, n=5):
@@ -392,11 +543,15 @@ class QuestionHistory:
     def stats(self):
         """返回历史统计信息。"""
         self._ensure_loaded()
+        file_size = os.path.getsize(HISTORY_FILE) if os.path.exists(HISTORY_FILE) else 0
         return {
             "total_questions": len(self._history),
-            "oldest": self._history[0]["datetime"] if self._history else "",
-            "newest": self._history[-1]["datetime"] if self._history else "",
+            "oldest": _entry_datetime(self._history[0]) if self._history else "",
+            "newest": _entry_datetime(self._history[-1]) if self._history else "",
             "file": HISTORY_FILE,
+            "file_size": file_size,
+            "max_entries": MAX_HISTORY_ENTRIES,
+            "max_bytes": MAX_HISTORY_BYTES,
         }
 
 
@@ -424,40 +579,47 @@ def handle_duplicate_check(question, module_label):
     在起卦前调用，检查重复问题并分级处理。
 
     分级逻辑：
-    - 相似度 ≥ 阈值 且 间隔 < 7天  → 拦截（展示蒙卦警告 + 时间规则）
-    - 相似度 ≥ 阈值 且 7天 ≤ 间隔 < 15天 → 警告但可坚持
-    - 相似度 ≥ 阈值 且 间隔 ≥ 15天 → 放行（仅提示）
+    - 同题复问：15天内拦截，30天内强提醒，之后轻提示放行
+    - 高度相似：7天内拦截，15天内提醒，之后轻提示放行
+    - 近似相关：7天内提醒，不硬拦截
     - 相似度 < 阈值 → 正常放行
 
     返回:
         (should_proceed, question)
     """
     history = get_session_history()
-    is_dup, matched, sim_score, time_cat, days_ago = history.check_duplicate(
+    is_dup, matched, sim_score, action, days_ago, band = history.check_duplicate(
         question, module_label
     )
 
-    if not is_dup:
+    if not is_dup or not matched or not band:
         return True, question
 
     # ── 时间分级处理 ──
     now = datetime.datetime.now()
-    prev_dt = matched.get("datetime", "未知时间")
+    prev_dt = _entry_datetime(matched)
+    prev_question = _entry_question(matched)
+    prev_module = _entry_module(matched)
+    prev_result = _entry_result(matched)
+    elapsed_text = _format_elapsed(days_ago)
+    jieqi_days, nearest_jieqi = _days_since_jieqi(now.date())
+    jieqi_text = f"距最近节气「{nearest_jieqi}」后约{jieqi_days}天"
 
-    if time_cat == "allow":
-        # 超过15天，仅轻提示
+    if action == "allow":
+        # 超过对应观察期，仅轻提示，不拦截。
         print()
         print(_sep())
-        print(f"  您约{days_ago:.0f}天前（{prev_dt}）问过相似问题：")
-        print(f"    「{matched['question']}」")
-        print(f"  间隔已超过一节气，气机已换，视为新问。")
+        print(f"  检测到历史{band['name']}：相似度 {sim_score:.0%}")
+        print(f"  您约{elapsed_text}前（{prev_dt}）问过：")
+        print(f"    「{prev_question}」")
+        print(f"  当前已超过 {band['warn_days']} 天观察窗，气机与事态已有轮转空间，视为新问。")
         print(_sep())
         return True, question
 
     # ── block 或 warn：展示蒙卦警告 ──
     print()
     print(_sep())
-    print("【术数规则提醒 —— 《周易·蒙卦第四》】")
+    print("【复问规则提醒 | 《周易·蒙卦第四》】")
     print()
     print("  「初筮告，再三渎，渎则不告。」")
     print("  —— 卦辞原文")
@@ -466,29 +628,34 @@ def handle_duplicate_check(question, module_label):
     print("  再次、三次追问同一事，是为亵渎；")
     print("  亵渎之后，天机不示，卦不告也。")
     print()
-    print(f"  您当前的问题与此前已问过的问题高度相似：")
-    print(f"    此前问题：{matched['question']}")
-    print(f"    此前时间：{prev_dt}（约{days_ago:.0f}天前）")
-    print(f"    此前方式：{matched.get('module', '未知')}")
-    print(f"    此前结果：{matched.get('result_summary', '无记录')}")
+    print(f"  命中层级：{band['name']}")
+    print(f"  判定说明：{band['msg']}")
+    print(f"  当前问题与此前记录相近：")
+    print(f"    此前问题：{prev_question}")
+    print(f"    此前时间：{prev_dt}（约{elapsed_text}前）")
+    print(f"    此前方式：{prev_module}")
+    print(f"    此前结果：{prev_result}")
     print(f"    相似度：{sim_score:.0%}")
     print()
     print(f"  ── 时间规则判定 ──")
 
-    _, nearest_jieqi = _days_since_jieqi(now.date())
-    next_jieqi_info = f"，距最近节气「{nearest_jieqi}」后约{_days_since_jieqi(now.date())[0]}天"
-
-    if time_cat == "block":
-        rule = TIME_RULES["block"]
-        print(f"  间隔 {days_ago:.0f} 天 < {rule['days']} 天：触发「{rule['name']}」拦截")
-        print(f"  出处：{rule['source']}")
-        print(f"  {rule['msg']}")
-        print(f"  建议：再等约 {rule['days'] - days_ago:.0f} 天后再问{next_jieqi_info}")
+    if action == "block":
+        print(f"  间隔 {elapsed_text} < {band['block_days']} 天：触发拦截")
+        print("  出处：蒙卦「再三渎，渎则不告」；复卦「反复其道，七日来复」。")
+        print(
+            f"  建议：至少再等约 {_remaining_wait(days_ago, band['block_days'])}，"
+            f"更稳妥是满 {band['warn_days']} 天或过一节气后再问（{jieqi_text}）。"
+        )
     else:
-        rule = TIME_RULES["warn"]
-        print(f"  {rule['days']} 天 > 间隔 {days_ago:.0f} 天 ≥ {TIME_RULES['block']['days']} 天：触发「{rule['name']}」警告")
-        print(f"  出处：{rule['source']}")
-        print(f"  {rule['msg']}")
+        if band["block_days"] > 0:
+            print(
+                f"  已过 {band['block_days']} 天硬拦截期，"
+                f"但未满 {band['warn_days']} 天观察期：触发警告。"
+            )
+        else:
+            print(f"  近似相关问题在 {band['warn_days']} 天内再次提出：触发提醒。")
+        print("  出处：蒙卦重在戒反复追问；节气轮转前，心念与事态多未实质换局。")
+        print(f"  建议：先复盘前卦；若确有新条件、新对象、新时间点，再明确改问。")
 
     print()
     print("  按照传统术数规则，同一问题不宜反复起卦：")
@@ -497,16 +664,16 @@ def handle_duplicate_check(question, module_label):
     print("    3. 若确有新情况、时隔较久、或换角度切入，可视为新问")
     print()
     print("  ── 何时可以重新起卦？──")
-    print("    过一节气（约15天）后  —— 节气轮转，气机已换，可视为新问")
-    print("    过一旬（10天）后        —— 旬空轮转，干支已变，勉强可重问")
-    print("    至少间隔 7 天           —— 部分流派的最短间隔底线")
-    print("    事态有实质变化时        —— 如结果已定、条件改变、人事变动")
-    print("    换一种起卦方式          —— 如六爻改为三爻，或改用姓名起卦")
+    print("    同题复问：至少满一节气，30天后更宜视作新局")
+    print("    高度相似：至少过七日，15天后气机较稳")
+    print("    近似相关：7天内先复盘前卦，避免同一心念反复摇摆")
+    print("    事态有实质变化时：如结果已定、条件改变、人事变动，可明确新问")
+    print("    换一种起卦方式时：仍需说明新角度，不宜只为追问同一答案")
     print(_sep())
 
     while True:
         print()
-        if time_cat == "block":
+        if action == "block":
             print("  请选择：")
             print("    [1] 坚持重起（强烈不推荐）")
             print("    [2] 换个问法")
@@ -520,15 +687,15 @@ def handle_duplicate_check(question, module_label):
             choice = input("  → ").strip()
 
         if choice == "1":
-            if time_cat == "block":
+            if action == "block":
                 print()
                 print("  已为您重新起卦。但需知：")
-                print(f"  距上次仅{days_ago:.0f}天，不足7日，卦气未换。")
+                print(f"  距上次仅{elapsed_text}，仍处于「{band['name']}」拦截期。")
                 print("  此卦象的参考价值可能大幅降低，请以初次结果为准。")
                 print()
             else:
                 print()
-                print("  已为您重新起卦。气机初换，但间隔有限，结果仅供参考。")
+                print("  已为您继续起卦。但此问仍与前问相近，结果应与前卦合参。")
                 print()
             return True, question
 
@@ -560,11 +727,17 @@ def show_history():
         return
 
     stats = history.stats()
+    size_kb = stats["file_size"] / 1024
+    max_kb = stats["max_bytes"] / 1024
     print()
     print(_sep())
-    print(f"【近期起卦记录】（共 {stats['total_questions']} 条，存于 {stats['file']}）")
+    print(
+        f"【近期起卦记录】（共 {stats['total_questions']} 条，"
+        f"上限 {stats['max_entries']} 条 / {max_kb:.0f} KB，当前 {size_kb:.1f} KB）"
+    )
+    print(f"  存储位置：{stats['file']}")
     for i, entry in enumerate(recent, 1):
-        dt = entry.get("datetime", "未知时间")
-        print(f"  {i}. [{entry['module']}] {entry['question']}")
-        print(f"     └ {dt}  → {entry['result_summary']}")
+        dt = _entry_datetime(entry)
+        print(f"  {i}. [{_entry_module(entry)}] {_entry_question(entry)}")
+        print(f"     └ {dt}  → {_entry_result(entry)}")
     print(_sep())
