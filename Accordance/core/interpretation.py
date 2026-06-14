@@ -412,7 +412,7 @@ def _analyze_hexagram_pattern(zhuanggua_result, hexagram_detail):
 def _build_category_conclusion(category, yongshen_name, score, yong_lines,
                                 yuan_lines, ji_lines, bian_relation,
                                 shi_line, dong_line, timing=""):
-    """根据问事类别生成具体结论断语，融入传统六爻断卦用语与人的因素考量。"""
+    """根据问事类别生成具体结论断语，融入传统六爻断卦用语与人为本考量。"""
     has_yong = bool(yong_lines)
     yong_strong = any(l.get("strength_score", 0) >= 2 for l in yong_lines) if yong_lines else False
     yong_weak = all(l.get("strength_score", 0) < 0 for l in yong_lines) if yong_lines else True
