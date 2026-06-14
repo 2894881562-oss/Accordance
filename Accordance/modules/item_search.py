@@ -96,6 +96,7 @@ def run_item_search():
     item_name = input("请输入要寻找的物品名称：").strip() or "目标物品"
     last_place = input("最后一次见到的大概位置（可回车跳过）：").strip() or "未提供"
     item_feature = input("物品主要特征（可回车跳过）：").strip() or "未提供"
+    search_scope = input("搜索范围：1小范围/2大范围或不确定（默认1）：").strip() or "1"
     external_omen = input("若有外应请输入，无则回车：").strip()
 
     print("\n请静心回想最后一次见到该物品的位置。")
@@ -107,7 +108,7 @@ def run_item_search():
     if not should_proceed:
         return
 
-    extra_text = f"{item_name}|{last_place}|{item_feature}|外应:{external_omen}"
+    extra_text = f"{item_name}|{last_place}|{item_feature}|范围:{search_scope}|外应:{external_omen}"
     three_yao_info = dynamic_three_yao_quick_divination(
         question=question_text, mode="item_search",
         extra_text=extra_text, focus_seed=focus_info["focus_seed"],
@@ -134,6 +135,8 @@ def run_item_search():
 
     print()
     print(f"  【寻回概率】{_likelihood(gua_name)}")
+    if search_scope != "1":
+        print("  【范围提醒】当前不是明确小范围，三爻只能给方位与物象启示；若物品可能已离开原处，建议改用六爻详占看前因后果。")
     print()
     print(f"  【空间定位】{_hint(gua_name)}")
     print(f"  【方位颜色】{r['direction_tip']}")

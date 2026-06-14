@@ -18,6 +18,7 @@ from config.yijing_philosophy import (
 from config.daxiang_data import get_daxiang
 from config.tuanzhuan_data import get_tuanzhuan
 from config.shensha_data import analyze_shensha_summary
+from config.traditional_sources import build_source_trace, build_reality_check
 from core.divination import (
     calculate_bian_gua, calculate_hugua, calculate_cuogua,
     calculate_zonggua, identify_tiyong,
@@ -427,6 +428,72 @@ def _build_category_conclusion(category, yongshen_name, score, yong_lines,
     def _append_timing(text):
         return f"{text}。{timing}" if timing else text
 
+    # ── 疾病病象（官鬼为病，子孙为医药）──
+    if "疾病病象" in category:
+        if not has_yong:
+            base = "病象官鬼不现，未必是大病之象，但不可据此掉以轻心。宜以现实症状和检查结果为准"
+        elif yong_strong and not ji_strong:
+            base = "官鬼病象旺而子孙制鬼不显，病势或压力较重。宜尽快检查、就医，不宜拖延或自行硬扛"
+        elif yong_strong and ji_strong:
+            base = "官鬼病象虽旺，但子孙制鬼有力，治疗、药物或休养能起作用。按医嘱处理，忌反复更改方案"
+        elif yong_weak:
+            base = "官鬼病象偏弱，当前压力可控。仍需观察症状变化，保持规律作息，不可因卦象轻忽现实风险"
+        elif has_huike:
+            base = "动变回头克病象，有制病之机。若现实治疗方向明确，可坚持观察效果"
+        elif has_huisheng:
+            base = "动变回头生病象，需防症状反复或压力加重。宜提前复查，少冒险消耗"
+        else:
+            base = "病象中平，吉凶未定。应以检查、医嘱和身体反馈为第一依据，卦象只作提醒"
+        return _append_timing(base)
+
+    # ── 医药治疗（子孙为医药福神）──
+    if "医药治疗" in category:
+        if yong_strong and yong_appears:
+            base = "子孙医药福神旺相，治疗、药物、休养方向较有利。宜按计划执行，观察阶段性反馈"
+        elif yong_strong and not yong_appears:
+            base = "子孙有力但见空破，药效或恢复有延迟。宜复核方案、耐心等待，不宜频繁换法"
+        elif yong_weak:
+            base = "子孙医药之力偏弱，治疗效果可能慢或不足。宜请专业医生复核，补足检查与护理"
+        elif has_huike:
+            base = "动变回头克子孙，治疗过程需防反复、药物不合或执行中断。应及时反馈给医生"
+        elif has_huisheng:
+            base = "动变回头生子孙，后续恢复力增强。坚持正规处理，勿因短期好转自行停药停治"
+        else:
+            base = "医药象中平，重在现实执行。按医嘱、检查结果和身体反馈推进"
+        return _append_timing(base)
+
+    # ── 寻物失物（妻财为物象）──
+    if "寻物" in category:
+        if yong_strong and yong_appears:
+            base = "财爻物象有根，物品仍有找回希望。先在最后出现的小范围内，按卦象方位、遮挡处和收纳处细查"
+        elif not has_yong:
+            base = "财爻不现，物象隐伏。宜看伏神、卦身与动爻，先回想最后经手路径，范围过大则改用六爻详占"
+        elif yong_strong and not yong_appears:
+            base = "物象虽有根但逢空破，可能被遮住、夹住、收纳或暂时离开视线。待出空、填破或冲开之时更易发现"
+        elif yong_weak:
+            base = "财爻物象偏弱，找回难度较大。优先确认是否已被移动、借走、丢弃或超出原搜索范围"
+        elif has_huike:
+            base = "动变回头克财，物品有损坏、转移或被他物压制之象。查被压住、袋中夹层和移动路线"
+        else:
+            base = "寻物象中平，先缩小范围再找。不要边找边扩大区域，按最后见到处逐层排查"
+        return _append_timing(base)
+
+    # ── 出行行人（子孙为平安顺遂）──
+    if "出行" in category:
+        if yong_strong and yong_appears and not ji_strong:
+            base = "子孙平安象有力，出行整体可行。仍需核对天气、路况、票务与时间余量"
+        elif yong_strong and ji_strong:
+            base = "平安象有力但阻力同现，行程可走但会有竞争、延误或手续压力。宜预留备选方案"
+        elif yong_weak:
+            base = "子孙平安象偏弱，出行宜谨慎。若遇天气、身体、票务或路况不稳，宁可延后或改线"
+        elif has_huike:
+            base = "动变回头克子孙，途中需防反复、延误或小故障。提前检查车辆、证件与时间安排"
+        elif has_huisheng:
+            base = "动变回头生子孙，先有不顺后有缓解。按计划推进时保留余量即可"
+        else:
+            base = "出行象中平，可走但不宜赶急。先把现实风险排查清楚"
+        return _append_timing(base)
+
     # ── 财货运（妻财为用神）──
     if "财货" in category or "妻财" == yongshen_name:
         if yong_strong and yuan_strong and not ji_strong:
@@ -693,6 +760,11 @@ def interpret_hexagram(hexagram_info):
     external_omen_result = analyze_external_omen(external_omen)
     traditional_evidence_chain = build_traditional_evidence_chain(
         zhuanggua_result, yongshen_system, bian_line_relation)
+    source_trace = build_source_trace(zhuanggua_result, yongshen_system, bian_line_relation)
+    reality_check = build_reality_check(
+        yongshen_system.get("inference", {}).get("category", ""),
+        yongshen_name,
+    )
 
     # --- 生成具体断语 ---
     specific_judgment = _build_specific_judgment(
@@ -779,6 +851,8 @@ def interpret_hexagram(hexagram_info):
         "bian_line_relation": bian_line_relation,
         "bian_line_relation_tip": bian_line_relation["summary"],
         "traditional_evidence_chain": traditional_evidence_chain,
+        "source_trace": source_trace,
+        "reality_check": reality_check,
         "nayin_summary": nayin_summary,
         "liushen_zhihua_summary": liushen_zhihua_summary,
         "external_omen_tip": external_omen_result["tip"],

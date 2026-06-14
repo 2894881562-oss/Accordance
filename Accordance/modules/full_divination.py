@@ -114,6 +114,9 @@ def run_full_divination():
     print(f"  【用神分析】")
     print(f"  {j['yongshen_system_summary']}")
     print()
+    print(f"  【传统依据】{j['source_trace']}")
+    print(f"  【现实校验】{j['reality_check']}")
+    print()
 
     # ===== 动变回头生克 =====
     print(f"  【动变回头】{j['bian_line_relation_tip']}")

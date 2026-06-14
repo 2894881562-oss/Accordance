@@ -59,6 +59,8 @@ def run_daily_fortune():
     # ===== 用神与动变 =====
     print()
     print(f"  【用神】{r['yongshen_system_summary']}")
+    print(f"  【传统依据】{r['source_trace']}")
+    print(f"  【现实校验】{r['reality_check']}")
     print(f"  【动变】{r['bian_line_relation_tip']}")
 
     # ===== 六神制化 =====

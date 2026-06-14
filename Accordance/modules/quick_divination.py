@@ -67,6 +67,8 @@ def run_quick_divination():
     print(f"  【天时】{r['weather_tip']}")
     print(f"  【物象】{r['wu_xiang_tip']}")
     print()
+    print("  【适用边界】三爻快占适合紧急、单点、短期判断；若要看前因后果、过程转折或重大决策，应改用六爻详占。")
+    print()
     print(f"  ▶ {r['suggest']}")
 
     omen = r.get("external_omen_tip", "")

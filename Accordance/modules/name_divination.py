@@ -89,6 +89,9 @@ def run_name_divination():
     # ===== 用神与六亲 =====
     print(f"  【用神分析】{r['yongshen_system_summary']}")
     print()
+    print(f"  【传统依据】{r['source_trace']}")
+    print(f"  【现实校验】{r['reality_check']}")
+    print()
     print(f"  【动变回头】{r['bian_line_relation_tip']}")
     print()
     print(f"  【六亲格局】{r['liuqin_interpretation']}")

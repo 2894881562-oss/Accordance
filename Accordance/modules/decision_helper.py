@@ -148,6 +148,8 @@ def _print_option(label, name, r):
     print(f"  互卦：{r['hu_gua_tip']}")
     print(f"  动变：{r['bian_line_relation_tip']}")
     print(f"  用神：{r['yongshen_system_summary']}")
+    print(f"  依据：{r['source_trace']}")
+    print(f"  校验：{r['reality_check']}")
     print(f"  风险：{_risk_tip(r)}")
     print(f"  ▶ {r['judgment_conclusion']}")
 

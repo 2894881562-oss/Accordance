@@ -215,13 +215,28 @@ def get_yueling_by_solar(solar):
         (12, 7, "子"),  # 大雪
     ]
 
-    # 找到当前日期所在的月建
-    current_yueling = "寅"  # 默认值
+    # 1月1日至小寒前仍承接上一年大雪后的子月。
+    current_yueling = "子"
     for i, (m, d, yl) in enumerate(jie_qi_boundaries):
         if (month > m) or (month == m and day >= d):
             current_yueling = yl
 
     return current_yueling
+
+
+def get_season_by_yueling(yueling):
+    """按节气月建判断五行旺衰季节。"""
+    if yueling in ("寅", "卯"):
+        return "春"
+    if yueling in ("巳", "午"):
+        return "夏"
+    if yueling in ("申", "酉"):
+        return "秋"
+    if yueling in ("亥", "子"):
+        return "冬"
+    if yueling in ("辰", "未", "戌", "丑"):
+        return "四季末"
+    return "春"
 
 
 def get_shichen_by_hour(hour):
@@ -236,10 +251,7 @@ def get_shichen_by_hour(hour):
     返回：
         int: 时辰序号 (1-12)
     """
-    shichen = ((hour + 1) // 2) % 12
-    if shichen == 0:
-        shichen = 12
-    return shichen
+    return ((hour + 1) // 2) % 12 + 1
 
 
 def get_shichen_ganzhi(day_tiangan, shichen_num):

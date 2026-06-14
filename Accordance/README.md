@@ -20,6 +20,7 @@ config/                    基础数据与规则
   tuanzhuan_data.py           六十四卦彖传（《彖传》）      ← 新增
   shensha_data.py             神煞子系统（天乙贵人、文昌、驿马等）← 新增
   yijing_philosophy.py        人本哲学、卦德修养、吉凶处境建议
+  traditional_sources.py      传统依据链、问类现实校验与实占边界
 
 core/                    核心逻辑
   divination.py               多种起卦法（时间/动态/姓名/三爻/日卦）

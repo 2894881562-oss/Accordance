@@ -23,7 +23,15 @@ from typing import Any, Dict, List, Optional, Tuple
 from config.bagua_data import BAGUA_DATA, NUM_TO_GUA_NAME
 from config.hexagram_data import HEXAGRAM_DATA, HUGUA_MAP, TRIGRAM_CUO, TRIGRAM_ZONG
 from config.wuxing_rules import WUXING_SHENG, WUXING_KE
-from core.qi_context import build_qi_seed, normalize_mod, get_accurate_day_ganzhi, get_day_tiangan
+from core.qi_context import (
+    build_qi_seed,
+    normalize_mod,
+    get_accurate_day_ganzhi,
+    get_day_tiangan,
+    get_yueling_by_solar,
+    get_season_by_yueling,
+    get_shichen_by_hour,
+)
 
 
 # ------------------------------------------------------------
@@ -122,7 +130,7 @@ def get_lunar_time() -> Dict[str, Any]:
     lunar_year = now.year
     lunar_month = now.month
     lunar_day = now.day
-    current_jieqi = "按月份近似"
+    lunar_source = "按公历近似农历"
 
     try:
         from zhdate import ZhDate  # type: ignore
@@ -132,45 +140,20 @@ def get_lunar_time() -> Dict[str, Any]:
         lunar_month = int(zh_date.lunar_month)
         lunar_day = int(zh_date.lunar_day)
         lunar_obj: Optional[Any] = zh_date
-        current_jieqi = "zhdate农历"
+        lunar_source = "zhdate农历"
 
     except (ImportError, AttributeError, ValueError, TypeError):
         lunar_obj = None
 
     hour = now.hour
 
-    # 十二时辰序号：
-    # 子时为 1，丑时为 2，……，亥时为 12。
-    shi_chen_num = (hour + 1) // 2
+    # 十二时辰序号：子=1，丑=2，……，亥=12；23:00-00:59 均属子时。
+    shi_chen_num = get_shichen_by_hour(hour)
 
-    if shi_chen_num == 0:
-        shi_chen_num = 12
-    elif shi_chen_num > 12:
-        shi_chen_num = 1
-
-    season = get_season_by_month(lunar_month)
-
-    # 四季末：
-    # 农历 3 / 6 / 9 / 12 月后半段土旺。
-    if lunar_month in (3, 6, 9, 12) and lunar_day >= 18:
-        season = "四季末"
-
-    yueling_by_month: Dict[int, str] = {
-        1: "寅",
-        2: "卯",
-        3: "辰",
-        4: "巳",
-        5: "午",
-        6: "未",
-        7: "申",
-        8: "酉",
-        9: "戌",
-        10: "亥",
-        11: "子",
-        12: "丑",
-    }
-
-    yueling = yueling_by_month.get(lunar_month, "寅")
+    # 六爻月建以节气为界，农历月只保留给梅花年月日时起卦。
+    yueling = get_yueling_by_solar(now)
+    season = get_season_by_yueling(yueling)
+    current_jieqi = f"节气月建近似：{yueling}月；农历来源：{lunar_source}"
     year_dizhi = get_year_dizhi(lunar_year)
     year_num = get_year_num(lunar_year)
 
@@ -726,4 +709,3 @@ def identify_tiyong(upper_num: int, lower_num: int, dong_yao: int) -> Dict[str, 
         "ti_gua_data": ti_gua,
         "yong_gua_data": yong_gua,
     }
-
