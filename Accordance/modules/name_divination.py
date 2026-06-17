@@ -115,5 +115,6 @@ def run_name_divination():
     print(r.get("human_agency_reminder", ""))
 
     print(f"  起卦日干支：{get_accurate_day_ganzhi()}")
+    print(f"  【简短结论】{r['plain_conclusion']}")
     _sep("═")
     print()

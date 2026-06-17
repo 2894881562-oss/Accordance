@@ -129,6 +129,25 @@ def _risk_tip(r):
     return f"检测到风险象意：{'、'.join(rw[:3])}"
 
 
+def _plain_decision_conclusion(option_a, score_a, r_a, option_b, score_b, r_b):
+    """生成二选一的短结论。"""
+    gap = abs(score_a - score_b)
+    if gap <= 8:
+        return f"建议暂缓。A与B只差{gap}分，卦象差距不明显，先按成本、风险、时间和现实条件再筛一轮。"
+
+    if score_a > score_b:
+        label, option, winner_score, loser_score, winner_result = "A", option_a, score_a, score_b, r_a
+    else:
+        label, option, winner_score, loser_score, winner_result = "B", option_b, score_b, score_a, r_b
+
+    risk_note = (
+        f"但{label}也有风险，执行前要核对现实条件。"
+        if _risk_keywords(winner_result)
+        else "按现实条件确认后可优先推进。"
+    )
+    return f"倾向选{label}「{option}」。{label}高出{winner_score - loser_score}分，{risk_note}"
+
+
 def _print_option(label, name, r):
     score = r.get("_score", 0)
     tiyong = r.get("tiyong_info", {})
@@ -197,6 +216,7 @@ def _compare(option_a, score_a, r_a, option_b, score_b, r_b):
     print("  提醒：卦象只为参考，金钱/合同/健康/法律等重要事项应以事实和专业意见为准。")
     # 人本提醒
     print(r_a.get("human_agency_reminder", ""))
+    print(f"  【简短结论】{_plain_decision_conclusion(option_a, score_a, r_a, option_b, score_b, r_b)}")
 
 
 def run_decision_helper(prefilled_question=None):

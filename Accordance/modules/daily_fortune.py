@@ -14,6 +14,25 @@ def _sep(char="─", width=62):
     print(char * width)
 
 
+def _plain_daily_conclusion(main_result, helper_result):
+    """生成当日气运专用的短结论。"""
+    score = int(main_result.get("ji_xiong_score", 3))
+    helper_tip = helper_result.get("plain_conclusion", "")
+
+    if score >= 4:
+        base = "今天整体偏顺，可以安排重要但可控的事。"
+    elif score == 3:
+        base = "今天整体平稳，适合按既定节奏推进。"
+    elif score == 2:
+        base = "今天需要放慢一点，不宜临时冒进。"
+    else:
+        base = "今天阻力偏重，宜少做高风险决定。"
+
+    if helper_tip:
+        return f"{base}{helper_tip}"
+    return f"{base}遇到变化先核对事实，再决定是否推进。"
+
+
 def run_daily_fortune():
     """运行当日气运指引流程"""
     print()
@@ -89,5 +108,6 @@ def run_daily_fortune():
         print(human)
 
     print(f"  提醒：当日气运用於查看整体基调，临时问题请用三爻快占，重大决策请用六爻详占。")
+    print(f"  【简短结论】{_plain_daily_conclusion(r, dr)}")
     _sep("═")
     print()

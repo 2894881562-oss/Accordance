@@ -607,6 +607,73 @@ def _build_category_conclusion(category, yongshen_name, score, yong_lines,
     return _append_timing(base)
 
 
+def _safe_float(value, default=0.0):
+    """把评分字段转为 float，避免解释层因空值中断。"""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _plain_reality_tip(category, yongshen_name):
+    """给简短结论用的现实核对点。"""
+    category = category or ""
+    if "疾病" in category or "医药" in category:
+        return "现实上以检查、症状和医生意见为准。"
+    if "寻物" in category:
+        return "现实上先缩小范围，从最后出现处找起。"
+    if "出行" in category:
+        return "现实上先核对天气、路况、票务和时间余量。"
+    if "婚恋" in category:
+        return "现实上看双方真实沟通和边界，不要只靠猜。"
+    if "财货" in category or yongshen_name == "妻财":
+        return "现实上先看合同、现金流和止损线。"
+    if "官职" in category or yongshen_name == "官鬼":
+        return "现实上看岗位反馈、交付成果和组织变化。"
+    if "文书" in category or yongshen_name == "父母":
+        return "现实上逐项核对材料、截止时间和手续。"
+    if "同辈" in category or yongshen_name == "兄弟":
+        return "现实上先说清权责、利益和退出方式。"
+    return "现实上以事实、证据和你的选择为准。"
+
+
+def build_plain_hexagram_conclusion(ji_xiong_score, yongshen_system, bian_line_relation):
+    """把六爻专业断语压缩成普通用户可读的短结论。"""
+    yongshen_system = yongshen_system or {}
+    bian_line_relation = bian_line_relation or {}
+    ji_score = _safe_float(ji_xiong_score, 3)
+    yong_score = _safe_float(yongshen_system.get("score", 0))
+    bian_score = _safe_float(bian_line_relation.get("score", 0))
+    combined = (ji_score - 3) + yong_score + bian_score
+    inference = yongshen_system.get("inference", {})
+    category = inference.get("category", "")
+    yongshen_name = yongshen_system.get("yongshen_name", "")
+
+    if combined >= 4:
+        tendency = "总体偏有利，可以推进。"
+        action = "但要稳扎稳打，见好就收。"
+    elif combined >= 1:
+        tendency = "有机会，但还不到完全放开的程度。"
+        action = "按计划小步推进，边走边核对条件。"
+    elif combined >= -2:
+        tendency = "目前吉凶参半，不宜急着下重手。"
+        action = "先观察、补信息，再决定是否推进。"
+    else:
+        tendency = "当前阻力偏大，不宜硬推。"
+        action = "先收住风险，等条件改善再动。"
+
+    return f"{tendency}{action}{_plain_reality_tip(category, yongshen_name)}"
+
+
+def build_plain_three_yao_conclusion(suggest, wang_shuai):
+    """把三爻快占建议压缩成短结论。"""
+    if "积极" in suggest or "主动" in suggest:
+        return "短期偏可行，可以主动做。别一次压太大，先看眼前反馈。"
+    if "守成" in suggest or wang_shuai in ("休", "囚"):
+        return "先稳住，不宜冒进。把眼前事做好，再看下一步。"
+    return "暂时不宜强推。先等一等，避开不必要的消耗。"
+
+
 def interpret_hexagram(hexagram_info):
     """六爻重卦解卦核心逻辑。"""
     upper_num = hexagram_info["upper_num"]
@@ -774,6 +841,9 @@ def interpret_hexagram(hexagram_info):
         zhuanggua_result, yongshen_system, bian_line_relation,
         tiyong_info, dong_yao, question_text, hexagram_detail,
     )
+    plain_conclusion = build_plain_hexagram_conclusion(
+        ji_xiong_score, yongshen_system, bian_line_relation,
+    )
 
     # ── 人本哲学指引 ──
     human_guidance = build_human_guidance(
@@ -866,6 +936,7 @@ def interpret_hexagram(hexagram_info):
         "specific_judgment": specific_judgment,
         "judgment_detail": specific_judgment["detail"],
         "judgment_conclusion": specific_judgment["conclusion"],
+        "plain_conclusion": plain_conclusion,
         # 人本哲学
         "human_guidance": human_guidance,
         "human_agency_reminder": HUMAN_AGENCY_REMINDER,
@@ -1013,6 +1084,7 @@ def interpret_three_yao(three_yao_info):
         single_tiyong_tip = _build_single_gua_tiyong_text(gua_info, yao_list, wang_shuai)
 
     external_omen_result = analyze_external_omen(three_yao_info.get("external_omen", ""))
+    plain_conclusion = build_plain_three_yao_conclusion(suggest, wang_shuai)
 
     return {
         "core_tip": core_tip,
@@ -1021,6 +1093,7 @@ def interpret_three_yao(three_yao_info):
         "weather_tip": weather_tip,
         "wu_xiang_tip": wu_xiang_tip,
         "suggest": suggest,
+        "plain_conclusion": plain_conclusion,
         "tiyong_note": tiyong_note,
         "single_tiyong_tip": single_tiyong_tip,
         "external_omen_tip": external_omen_result["tip"],

@@ -26,7 +26,7 @@ config/                    基础数据与规则
 core/                    核心逻辑
   divination.py               多种起卦法（时间/动态/姓名/三爻/日卦）
   zhuanggua.py                完整装卦引擎 + 卦身 + 进神退神 + 反吟伏吟
-  interpretation.py           综合解卦（纳甲+体用+用神+彖传+卦身+神煞）
+  interpretation.py           综合解卦（纳甲+体用+用神+彖传+卦身+神煞+简短结论）
   qi_context.py               气机计算（精确日干支、旬空、月建、时干支）
   question_history.py         问题历史（持久化 + 中文语义去重 + 分层拦截 + 记录压缩）
   method_selector.py          起卦法选择器

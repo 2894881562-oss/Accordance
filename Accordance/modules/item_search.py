@@ -87,6 +87,17 @@ def _item_tips(item_name, last_place, item_feature, gua_name):
     return tips
 
 
+def _plain_item_conclusion(gua_name, tips, search_scope):
+    """生成寻物专项的短结论。"""
+    first_tip = tips[0] if tips else "从最后见到的位置开始查"
+    if search_scope != "1":
+        return (
+            f"先按{gua_name}方位找，重点查“{first_tip}”。"
+            "范围偏大或不确定时，找不到就改用六爻详占看是否移动、遗落或被人拿取。"
+        )
+    return f"优先在{gua_name}方位找，重点查“{first_tip}”。先别扩大范围，从最后出现处逐层排查。"
+
+
 def run_item_search():
     """运行寻物专项占流程"""
     print()
@@ -165,5 +176,6 @@ def run_item_search():
     print()
     print(f"  日干支：{get_accurate_day_ganzhi()}  |  "
           f"人念：{focus_info['focus_seconds']:.2f}秒")
+    print(f"  【简短结论】{_plain_item_conclusion(gua_name, tips, search_scope)}")
     _sep("═")
     print()

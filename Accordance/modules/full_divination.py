@@ -190,5 +190,6 @@ def run_full_divination(prefilled_question=None):
     print()
     # ===== 提醒 =====
     print(f"  【提醒】本系统仅为传统文化研究参考，不替代现实判断。")
+    print(f"  【简短结论】{j['plain_conclusion']}")
     _sep("═")
     print()

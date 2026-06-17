@@ -88,5 +88,6 @@ def run_quick_divination(prefilled_question=None):
           f"人念：{focus_info['focus_seconds']:.2f}秒  |  "
           f"种子：{three_yao_info['qi_seed']}")
     print(f"  三爻：{three_yao_info['yao_list']}")
+    print(f"  【简短结论】{r['plain_conclusion']}")
     _sep("═")
     print()
