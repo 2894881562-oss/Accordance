@@ -1,0 +1,35 @@
+<article class="result-card">
+  <header>
+    <p class="eyebrow">{{ feature.name }}</p>
+    <h2>{{ result.summary }}</h2>
+  </header>
+
+  {% if result.duplicate_check.is_duplicate %}
+    <section class="warning">
+      <strong>复问提醒</strong>
+      <p>{{ result.duplicate_check.message }}</p>
+      {% if not result.history_recorded %}
+        <p>{{ result.duplicate_check.ethics }}</p>
+        <button class="secondary continue-force" type="button">确认继续起卦</button>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  <section class="plain">
+    <span>简短结论</span>
+    <p>{{ result.plain_conclusion }}</p>
+  </section>
+
+  {% for section in result.sections %}
+    {% if section["items"] %}
+      <details class="detail" {% if loop.index <= 2 %}open{% endif %}>
+        <summary>{{ section.title }}</summary>
+        <ul>
+          {% for item in section["items"] %}
+            <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </details>
+    {% endif %}
+  {% endfor %}
+</article>

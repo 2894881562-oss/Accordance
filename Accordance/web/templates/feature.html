@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h1>{{ feature.name }}</h1>
+  <p class="muted">填写必要信息后起卦。若触发复问提醒，可在结果区确认是否继续。</p>
+</section>
+
+<section class="panel">
+  <form class="ajax-form" data-endpoint="/api/divinations/{{ key }}" data-target="#result">
+    {% if key in ["full", "quick", "decision"] %}
+      <label>所问之事
+        <textarea name="question" maxlength="200" rows="3" required placeholder="请简明写清对象、时间范围与所求结果"></textarea>
+      </label>
+    {% endif %}
+
+    {% if key in ["full", "quick", "item"] %}
+      <label>外应（可选）
+        <input name="external_omen" maxlength="160" placeholder="如声音、来人、突发状况等">
+      </label>
+      <label>专注停顿毫秒（可选）
+        <input name="focus_seed" type="number" min="0" max="86400000" value="0">
+      </label>
+    {% endif %}
+
+    {% if key == "name" %}
+      <label>姓氏
+        <input name="xing" maxlength="24" required placeholder="例：李">
+      </label>
+      <label>名字
+        <input name="ming" maxlength="24" required placeholder="例：明">
+      </label>
+      <div class="split">
+        <label>姓氏笔画
+          <input name="xing_stroke" type="number" min="1" max="99" required>
+        </label>
+        <label>名字笔画
+          <input name="ming_stroke" type="number" min="1" max="99" required>
+        </label>
+      </div>
+    {% endif %}
+
+    {% if key == "item" %}
+      <label>物品名称
+        <input name="item_name" maxlength="80" required placeholder="例：钥匙、咖啡罐、耳机">
+      </label>
+      <label>最后一次见到的位置
+        <input name="last_place" maxlength="120" placeholder="可留空">
+      </label>
+      <label>物品特征
+        <input name="item_feature" maxlength="120" placeholder="颜色、材质、大小、用途">
+      </label>
+      <label>搜索范围
+        <select name="search_scope">
+          <option value="1">小范围</option>
+          <option value="2">大范围或不确定</option>
+        </select>
+      </label>
+    {% endif %}
+
+    {% if key == "decision" %}
+      <label>选项 A
+        <input name="option_a" maxlength="120" required>
+      </label>
+      <label>选项 B
+        <input name="option_b" maxlength="120" required>
+      </label>
+    {% endif %}
+
+    {% if key == "daily" %}
+      <p class="muted">当日气运按当天时间起卦，同一天内基调相对稳定。</p>
+    {% endif %}
+
+    <input type="hidden" name="force" value="false">
+    <button class="primary" type="submit">开始分析</button>
+  </form>
+</section>
+
+<section id="result" class="result-slot"></section>
+{% endblock %}

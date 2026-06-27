@@ -1,0 +1,12 @@
+.git
+.idea
+.claude
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+Accordance/.data/
+参考资料/
+*.log
+*.tmp

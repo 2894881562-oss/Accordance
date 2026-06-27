@@ -1,0 +1,14 @@
+services:
+  accordance-web:
+    build: .
+    container_name: accordance-web
+    ports:
+      - "8000:8000"
+    environment:
+      ACCORDANCE_WEB_DATA_DIR: /data/web_clients
+    volumes:
+      - accordance_web_data:/data
+    restart: unless-stopped
+
+volumes:
+  accordance_web_data:

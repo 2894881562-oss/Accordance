@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <title>{{ title or "Accordance" }}</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Accordance</a>
+    <nav class="top-actions">
+      <a href="/history">记录</a>
+      <a href="/method-selector">选择器</a>
+    </nav>
+  </header>
+  <main class="page">
+    {% block content %}{% endblock %}
+  </main>
+  <nav class="bottom-nav" aria-label="底部导航">
+    <a href="/">首页</a>
+    <a href="/features/full">六爻</a>
+    <a href="/features/quick">三爻</a>
+    <a href="/history">记录</a>
+  </nav>
+</body>
+</html>

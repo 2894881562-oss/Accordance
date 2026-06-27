@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <h1>
+    <span>《周易》六爻纳甲</span>
+    <span>梅花易数</span>
+  </h1>
+  <p>手机浏览器完整使用。卦为镜鉴，人为本；结果只作传统文化参考。</p>
+</section>
+
+<section class="grid">
+  {% for key, feature in features.items() %}
+    <a class="feature-tile" href="/features/{{ key }}">
+      <span class="tile-index">{{ loop.index }}</span>
+      <strong>{{ feature.name }}</strong>
+      <small>
+        {% if key == "full" %}重大、复杂、需看前因后果{% endif %}
+        {% if key == "quick" %}紧急、单点、短期判断{% endif %}
+        {% if key == "name" %}姓名、字号、名号取象{% endif %}
+        {% if key == "daily" %}当天整体行事基调{% endif %}
+        {% if key == "item" %}失物位置与搜索路径{% endif %}
+        {% if key == "decision" %}两个选项的取舍比较{% endif %}
+      </small>
+    </a>
+  {% endfor %}
+</section>
+
+<section class="notice">
+  <strong>隐私保护</strong>
+  <p>无需注册。系统只用匿名设备 ID 保存本机浏览器对应的历史记录，不提供查看他人记录的入口。</p>
+</section>
+{% endblock %}

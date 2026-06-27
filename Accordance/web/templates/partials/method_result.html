@@ -1,0 +1,15 @@
+<article class="result-card">
+  <header>
+    <p class="eyebrow">推荐结果</p>
+    <h2>起卦法建议</h2>
+  </header>
+  {% for item in result.ranked[:3] %}
+    <section class="method-card">
+      <strong>{{ loop.index }}. {{ item.name }}｜评分 {{ item.score }}</strong>
+      <p>{{ item.reason }}</p>
+      <p class="muted">依据：{{ item.basis }}</p>
+      <p class="muted">边界：{{ item.caution }}</p>
+      <a class="inline-action" href="/features/{{ item.key }}">进入{{ item.name }}</a>
+    </section>
+  {% endfor %}
+</article>

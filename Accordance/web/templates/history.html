@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h1>近期起卦记录</h1>
+  <p class="muted">仅显示当前匿名设备的记录。不会展示其他访问者的问题或结果。</p>
+  <p class="muted">共 {{ stats.total_questions }} 条，上限 {{ stats.max_entries }} 条。</p>
+  <form method="post" action="/history/clear" onsubmit="return confirm('只清空当前设备的匿名历史，确认继续？')">
+    <button class="secondary" type="submit">清空当前设备记录</button>
+  </form>
+</section>
+
+<section class="history-list">
+  {% if not items %}
+    <p class="empty">暂无记录。</p>
+  {% endif %}
+  {% for item in items %}
+    <article class="history-item">
+      <strong>[{{ item.m }}] {{ item.q }}</strong>
+      <p>{{ item.dt }} · {{ item.r }}</p>
+    </article>
+  {% endfor %}
+</section>
+{% endblock %}

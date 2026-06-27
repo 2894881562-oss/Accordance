@@ -32,6 +32,9 @@ dist/
 .env.*
 !.env.example
 
+# Local and anonymous user history data
+Accordance/.data/
+
 # Logs and temporary files
 *.log
 *.tmp

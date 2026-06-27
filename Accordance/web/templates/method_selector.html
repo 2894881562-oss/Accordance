@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h1>起卦法选择器</h1>
+  <p class="muted">输入你要问的事，系统推荐更贴切的入口。</p>
+</section>
+
+<section class="panel">
+  <form class="ajax-form" data-endpoint="/api/method-selector" data-target="#method-result">
+    <label>问题描述
+      <textarea name="question" maxlength="200" rows="4" required></textarea>
+    </label>
+    <button class="primary" type="submit">推荐起卦法</button>
+  </form>
+</section>
+
+<section id="method-result" class="result-slot"></section>
+{% endblock %}

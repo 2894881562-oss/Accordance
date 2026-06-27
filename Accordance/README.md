@@ -8,6 +8,17 @@
 python main.py
 ```
 
+## 移动端 Web
+
+```bash
+cd ..
+pip install -r requirements.txt
+cd Accordance
+uvicorn web.app:app --host 0.0.0.0 --port 8000
+```
+
+手机访问 `http://电脑或服务器IP:8000`。Web 版按匿名设备隔离历史记录，不需要注册登录。
+
 ## 目录结构
 
 ```text

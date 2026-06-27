@@ -454,8 +454,9 @@ class QuestionHistory:
     自动从文件加载，每次记录后自动保存。
     """
 
-    def __init__(self, similarity_threshold=SIMILARITY_BANDS[-1]["min_score"]):
+    def __init__(self, similarity_threshold=SIMILARITY_BANDS[-1]["min_score"], history_file=None):
         self._threshold = similarity_threshold
+        self._history_file = history_file or HISTORY_FILE
         self._history = []
         self._loaded = False
 
@@ -465,8 +466,8 @@ class QuestionHistory:
             return
         should_migrate = False
         try:
-            if os.path.exists(HISTORY_FILE):
-                with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            if os.path.exists(self._history_file):
+                with open(self._history_file, "r", encoding="utf-8") as f:
                     raw = json.load(f)
                 if isinstance(raw, list):
                     self._history = _compact_history(raw)
@@ -481,7 +482,10 @@ class QuestionHistory:
         """保存到磁盘，并控制历史文件体积。"""
         self._history = _compact_history(self._history)
         try:
-            with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            directory = os.path.dirname(self._history_file)
+            if directory:
+                os.makedirs(directory, exist_ok=True)
+            with open(self._history_file, "w", encoding="utf-8") as f:
                 json.dump(self._history, f, ensure_ascii=False, separators=(",", ":"))
         except (IOError, OSError):
             pass
@@ -543,12 +547,12 @@ class QuestionHistory:
     def stats(self):
         """返回历史统计信息。"""
         self._ensure_loaded()
-        file_size = os.path.getsize(HISTORY_FILE) if os.path.exists(HISTORY_FILE) else 0
+        file_size = os.path.getsize(self._history_file) if os.path.exists(self._history_file) else 0
         return {
             "total_questions": len(self._history),
             "oldest": _entry_datetime(self._history[0]) if self._history else "",
             "newest": _entry_datetime(self._history[-1]) if self._history else "",
-            "file": HISTORY_FILE,
+            "file": self._history_file,
             "file_size": file_size,
             "max_entries": MAX_HISTORY_ENTRIES,
             "max_bytes": MAX_HISTORY_BYTES,
@@ -564,6 +568,75 @@ _session_history = QuestionHistory()
 
 def get_session_history():
     return _session_history
+
+
+def build_duplicate_decision(question, module_label, history=None):
+    """返回非交互式复问判定，供 Web/API 层自行渲染和确认。"""
+    history = history or get_session_history()
+    is_dup, matched, sim_score, action, days_ago, band = history.check_duplicate(
+        question, module_label
+    )
+
+    if not is_dup or not matched or not band:
+        return {
+            "is_duplicate": False,
+            "action": "none",
+            "should_warn": False,
+            "can_continue": True,
+            "message": "",
+        }
+
+    now = datetime.datetime.now()
+    prev_dt = _entry_datetime(matched)
+    prev_question = _entry_question(matched)
+    prev_module = _entry_module(matched)
+    prev_result = _entry_result(matched)
+    elapsed_text = _format_elapsed(days_ago)
+    jieqi_days, nearest_jieqi = _days_since_jieqi(now.date())
+    jieqi_text = f"距最近节气「{nearest_jieqi}」后约{jieqi_days}天"
+
+    if action == "allow":
+        message = (
+            f"检测到历史{band['name']}，相似度 {sim_score:.0%}。"
+            f"您约{elapsed_text}前问过相近问题，当前已超过 {band['warn_days']} 天观察窗。"
+        )
+    elif action == "block":
+        message = (
+            f"命中{band['name']}，间隔 {elapsed_text} 小于 {band['block_days']} 天。"
+            f"建议至少再等约 {_remaining_wait(days_ago, band['block_days'])}，"
+            f"更稳妥是满 {band['warn_days']} 天或过一节气后再问（{jieqi_text}）。"
+        )
+    else:
+        if band["block_days"] > 0:
+            timing = f"已过 {band['block_days']} 天硬拦截期，但未满 {band['warn_days']} 天观察期。"
+        else:
+            timing = f"近似相关问题在 {band['warn_days']} 天内再次提出。"
+        message = f"命中{band['name']}，{timing}建议先复盘前卦；若有新条件，再明确改问。"
+
+    return {
+        "is_duplicate": True,
+        "action": action,
+        "should_warn": action in ("block", "warn", "allow"),
+        "can_continue": True,
+        "similarity": sim_score,
+        "days_ago": days_ago,
+        "elapsed_text": elapsed_text,
+        "band": {
+            "key": band["key"],
+            "name": band["name"],
+            "block_days": band["block_days"],
+            "warn_days": band["warn_days"],
+            "msg": band["msg"],
+        },
+        "matched": {
+            "question": prev_question,
+            "module": prev_module,
+            "datetime": prev_dt,
+            "result": prev_result,
+        },
+        "message": message,
+        "ethics": "初筮告，再三渎，渎则不告。若只是对前次结果不满意而重问，参考价值会降低。",
+    }
 
 
 # ═══════════════════════════════════════════════════════════

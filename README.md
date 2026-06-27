@@ -112,6 +112,44 @@ cd Accordance
 python main.py
 ```
 
+## 手机网页运行
+
+本项目已提供移动端 Web 入口，核心规则仍由 Python 引擎计算，手机浏览器只负责输入与展示。
+
+### 本机运行
+
+```bash
+pip install -r requirements.txt
+cd Accordance
+uvicorn web.app:app --host 0.0.0.0 --port 8000
+```
+
+同一局域网手机访问：
+
+```text
+http://电脑局域网IP:8000
+```
+
+### Docker 运行
+
+```bash
+docker compose up -d --build
+```
+
+访问：
+
+```text
+http://服务器或电脑IP:8000
+```
+
+### 隐私与历史
+
+- 无需注册登录，不提供用户互相查看记录的入口。
+- 每台设备首次访问会获得匿名 `client_id`，历史记录只按该匿名设备隔离保存。
+- Web 历史默认保留最近 120 条并控制在约 96KB 内，沿用蒙卦复问提醒规则。
+- `.data/` 属于本地隐私数据目录，已加入忽略，不应提交到公开仓库。
+- 服务日志不记录用户问题正文；页面也不暴露服务端历史文件路径。
+
 ## 菜单
 
 ```text
