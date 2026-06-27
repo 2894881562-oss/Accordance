@@ -1,0 +1,14 @@
+{$ACCORDANCE_SITE_ADDRESS} {
+    encode zstd gzip
+
+    header {
+        Cache-Control "no-store"
+        Referrer-Policy "same-origin"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-Robots-Tag "noindex, nofollow"
+        -Server
+    }
+
+    reverse_proxy accordance-web:8000
+}

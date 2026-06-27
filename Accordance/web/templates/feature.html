@@ -17,9 +17,19 @@
       <label>外应（可选）
         <input name="external_omen" maxlength="160" placeholder="如声音、来人、突发状况等">
       </label>
-      <label>专注停顿毫秒（可选）
-        <input name="focus_seed" type="number" min="0" max="86400000" value="0">
-      </label>
+      <input name="focus_seed" type="hidden" value="0" data-focus-seed>
+      <div class="focus-ritual" data-focus-ritual>
+        <div>
+          <span class="eyebrow">默念凝神</span>
+          <p>先在心中默念所问之事，意念稳定后再完成默念起卦。</p>
+        </div>
+        <strong class="focus-time" data-focus-display>0.00 秒</strong>
+        <div class="focus-actions">
+          <button class="secondary" type="button" data-focus-start>开始默念</button>
+          <button class="secondary" type="button" data-focus-stop disabled>完成默念</button>
+        </div>
+        <p class="muted" data-focus-state>尚未开始默念；完成默念后再起卦。</p>
+      </div>
     {% endif %}
 
     {% if key == "name" %}

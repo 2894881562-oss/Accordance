@@ -34,6 +34,7 @@ dist/
 
 # Local and anonymous user history data
 Accordance/.data/
+deploy/cloud/.env
 
 # Logs and temporary files
 *.log

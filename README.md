@@ -150,6 +150,27 @@ http://服务器或电脑IP:8000
 - `.data/` 属于本地隐私数据目录，已加入忽略，不应提交到公开仓库。
 - 服务日志不记录用户问题正文；页面也不暴露服务端历史文件路径。
 
+### 公网部署推荐
+
+公开给别人长期使用时，推荐部署到云服务器，不推荐长期使用内网穿透、家庭路由器端口映射或 VPN。云服务器运行 Docker 后，别人访问只消耗云服务器资源，不占用你的电脑性能，也不要求你的电脑一直开机。
+
+部署文件在：
+
+```text
+deploy/cloud/
+```
+
+云服务器上执行：
+
+```bash
+git clone <你的GitHub仓库地址> Tao
+cd Tao
+cp deploy/cloud/.env.example deploy/cloud/.env
+docker compose --env-file deploy/cloud/.env -f deploy/cloud/docker-compose.yml up -d --build
+```
+
+如果没有域名，访问 `http://服务器公网IP`；有域名时把 `deploy/cloud/.env` 里的 `ACCORDANCE_SITE_ADDRESS` 改为域名，Caddy 会自动处理 HTTPS。云端配置已包含应用健康检查、反向代理安全响应头和匿名历史数据卷。
+
 ## 菜单
 
 ```text

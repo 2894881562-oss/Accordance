@@ -211,6 +211,40 @@ button,
   border-radius: 8px;
 }
 
+.focus-ritual {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid #ead7b6;
+  border-radius: 8px;
+  background: #fff8e9;
+}
+
+.focus-ritual p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.focus-time {
+  display: block;
+  font-size: 28px;
+  line-height: 1.1;
+  color: var(--accent);
+}
+
+.focus-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.focus-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .plain span,
 .eyebrow {
   display: block;
