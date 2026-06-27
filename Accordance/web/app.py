@@ -6,7 +6,7 @@ from collections import defaultdict, deque
 from pathlib import Path
 
 from fastapi.encoders import jsonable_encoder
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -87,6 +87,11 @@ async def privacy_headers(request, call_next):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(status_code=204)
 
 
 @app.get("/", response_class=HTMLResponse)

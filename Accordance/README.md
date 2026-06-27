@@ -10,6 +10,16 @@ python main.py
 
 ## 移动端 Web
 
+当前阶段按本机/同一局域网使用。电脑终端关闭、电脑休眠、断网或切换网络后，手机端会停止访问。
+
+从项目根目录启动 Windows 脚本：
+
+```powershell
+.\start_local_web.ps1
+```
+
+也可以手动启动：
+
 ```bash
 cd ..
 pip install -r requirements.txt
@@ -17,7 +27,9 @@ cd Accordance
 uvicorn web.app:app --host 0.0.0.0 --port 8000
 ```
 
-手机访问 `http://电脑或服务器IP:8000`。Web 版按匿名设备隔离历史记录，不需要注册登录。
+同一 Wi-Fi 或同一手机热点下，手机访问 `http://电脑局域网IP:8000`。Web 版按匿名设备隔离历史记录，不需要注册登录；本机 Web 历史默认保存在 `Accordance/.data/web_clients/`，不会进入 GitHub。
+
+云服务器、Docker/Caddy 和公网部署文件仍保留在仓库中，但当前不是必需步骤。
 
 ## 目录结构
 
