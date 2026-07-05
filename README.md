@@ -92,6 +92,7 @@
 │   │   ├── qi_context.py       精确日干支、旬空、月建
 │   │   ├── question_history.py 持久化历史 + 语义去重 + 分层拦截 + 记录压缩
 │   │   ├── method_selector.py  起卦法推荐
+│   │   ├── rule_audit.py       纳甲/世应/卦象校准/选择器一致性审计
 │   │   └── question_precheck.py 问事校准
 │   └── modules/             # 功能模块
 │       ├── full_divination.py  六爻详占
@@ -100,7 +101,8 @@
 │       ├── daily_fortune.py    当日气运
 │       ├── item_search.py      寻物专项
 │       ├── decision_helper.py  二选一决策
-│       └── method_selector.py  起卦法选择器 CLI
+│       ├── method_selector.py  起卦法选择器 CLI
+│       └── rule_audit.py       规则数据审计 CLI
 ├── .gitignore
 └── README.md
 ```
@@ -198,6 +200,7 @@ docker compose --env-file deploy/cloud/.env -f deploy/cloud/docker-compose.yml u
 6. 二选一决策辅助（双卦对比 + 风险分析）
 7. 查看近期起卦记录
 8. 起卦法选择器
+9. 规则数据审计（纳甲/世应/卦象校准/选择器）
 0. 退出系统
 ```
 

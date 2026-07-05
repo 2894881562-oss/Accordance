@@ -38,6 +38,19 @@ from core.qi_context import (
 
 PALACE_ROLE_NAMES = ["本宫六世", "一世", "二世", "三世", "四世", "五世", "游魂", "归魂"]
 
+# 八宫序列本身即可推导世应：八纯世六，一世初，二世二，三世三，
+# 四世四，五世五，游魂四，归魂三；应爻恒隔三位。
+SHI_YING_BY_PALACE_INDEX = {
+    0: {"shi": 6, "ying": 3},
+    1: {"shi": 1, "ying": 4},
+    2: {"shi": 2, "ying": 5},
+    3: {"shi": 3, "ying": 6},
+    4: {"shi": 4, "ying": 1},
+    5: {"shi": 5, "ying": 2},
+    6: {"shi": 4, "ying": 1},
+    7: {"shi": 3, "ying": 6},
+}
+
 LIUQIN_KEYWORD_RULES = [
     {
         "category": "寻物失物",
@@ -187,9 +200,19 @@ def get_shi_ying(hexagram_name):
     返回：
         dict: {"shi": 世爻位置, "ying": 应爻位置}
     """
+    for (upper_num, lower_num), detail in HEXAGRAM_DATA.items():
+        if detail.get("name") == hexagram_name:
+            return get_shi_ying_by_key(upper_num, lower_num)
     if hexagram_name in BAGUA_SHI_YING:
-        return BAGUA_SHI_YING[hexagram_name]
+        return dict(BAGUA_SHI_YING[hexagram_name])
     return {"shi": 0, "ying": 0}
+
+
+def get_shi_ying_by_key(upper_num, lower_num):
+    """按八宫序列推导世应爻位。"""
+    palace_info = get_hexagram_palace(upper_num, lower_num)
+    palace_index = palace_info.get("palace_index", -1)
+    return dict(SHI_YING_BY_PALACE_INDEX.get(palace_index, {"shi": 0, "ying": 0}))
 
 
 # ------------------------------------------------------------
@@ -774,7 +797,7 @@ def zhuang_gua_complete(upper_num, lower_num, solar=None, lunar_info=None):
     palace_role = palace_info.get("palace_role", "未知")
 
     # 世应
-    shi_ying_info = get_shi_ying(hexagram_name)
+    shi_ying_info = get_shi_ying_by_key(upper_num, lower_num)
     shi_pos = shi_ying_info.get("shi", 0)
     ying_pos = shi_ying_info.get("ying", 0)
 

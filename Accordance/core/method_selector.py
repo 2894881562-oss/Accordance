@@ -5,6 +5,8 @@
 不替代用户判断，也不直接参与起卦计算。
 """
 
+import re
+
 
 METHOD_PROFILES = {
     "full": {
@@ -69,11 +71,99 @@ NEGATIVE_HINTS = {
 }
 
 
+HIGH_STAKES_TERMS = [
+    "合同", "法律", "官司", "诉讼", "疾病", "健康", "治疗", "手术",
+    "投资", "股票", "基金", "买房", "卖房", "离职", "跳槽", "婚姻",
+    "长期", "重大", "风险", "前因后果", "项目", "合作",
+]
+
+ITEM_OBJECT_TERMS = ["东西", "物品", "钥匙", "手机", "证件", "钱包", "文件", "卡", "包"]
+ITEM_ACTION_TERMS = ["寻物", "找东西", "寻找", "找回", "丢", "丢失", "失物", "遗失", "落下", "不见"]
+NAME_TERMS = ["姓名", "名字", "改名", "起名", "笔画", "公司名", "品牌名", "店名", "艺名"]
+DAILY_TERMS = ["今日", "今天", "当天", "日运", "气运", "运势", "整体", "行事"]
+QUICK_TERMS = ["现在", "马上", "今天", "明天", "短期", "临时", "急", "要不要", "该不该", "能不能", "可不可以", "是否"]
+COMPLEX_TERMS = ["长期", "重大", "复杂", "前因后果", "多方", "结果", "趋势", "风险"]
+
+
 def _contains_any(text, keywords):
     return [word for word in keywords if word and word.lower() in text]
 
 
-def _score_method(text, method_key):
+def _has_any(text, keywords):
+    return any(word.lower() in text.lower() for word in keywords)
+
+
+def _looks_like_two_options(text):
+    if any(word in text for word in ["二选一", "选哪个", "哪一个", "哪个更", "取舍", "对比", "比较"]):
+        return True
+    if "还是" in text or "或者" in text:
+        return True
+
+    upper_text = text.upper()
+    return bool(
+        re.search(r"(?:^|[^A-Z])A(?:[^A-Z]|$).*(?:^|[^A-Z])B(?:[^A-Z]|$)", upper_text)
+        or re.search(r"(?:^|[^A-Z])B(?:[^A-Z]|$).*(?:^|[^A-Z])A(?:[^A-Z]|$)", upper_text)
+    )
+
+
+def _build_route_context(text):
+    """识别强场景，给选择器排序提供可审的加权依据。"""
+    normalized = text.lower()
+    boosts = {key: 0 for key in METHOD_PROFILES}
+    labels = {key: [] for key in METHOD_PROFILES}
+
+    item_hit = _has_any(normalized, ITEM_ACTION_TERMS) or (
+        "找" in text and _has_any(normalized, ITEM_OBJECT_TERMS)
+    )
+    decision_hit = _looks_like_two_options(text)
+    name_hit = _has_any(normalized, NAME_TERMS)
+    daily_hit = _has_any(normalized, DAILY_TERMS)
+    high_stakes_hit = _has_any(normalized, HIGH_STAKES_TERMS)
+    complex_hit = _has_any(normalized, COMPLEX_TERMS)
+    quick_hit = _has_any(normalized, QUICK_TERMS) or len(text.strip()) <= 18
+
+    if item_hit:
+        boosts["item"] += 14
+        boosts["daily"] -= 5
+        boosts["quick"] -= 2
+        labels["item"].append("寻物强场景")
+        if "范围大" in text or "不确定" in text or "离身" in text:
+            boosts["full"] += 4
+            labels["full"].append("寻物范围不明需六爻补充")
+
+    if decision_hit:
+        boosts["decision"] += 13
+        boosts["quick"] -= 1
+        labels["decision"].append("二选一强场景")
+
+    if name_hit:
+        boosts["name"] += 12
+        boosts["full"] -= 1
+        labels["name"].append("名号笔画强场景")
+
+    if daily_hit and not (item_hit or decision_hit or name_hit or high_stakes_hit):
+        boosts["daily"] += 10
+        labels["daily"].append("当日整体基调")
+    elif daily_hit:
+        boosts["daily"] += 2
+
+    if high_stakes_hit:
+        boosts["full"] += 10
+        boosts["quick"] -= 5
+        boosts["daily"] -= 4
+        labels["full"].append("高风险复杂事项")
+    elif complex_hit:
+        boosts["full"] += 7
+        labels["full"].append("复杂事项")
+
+    if quick_hit and not high_stakes_hit and not complex_hit and not item_hit and not decision_hit and not name_hit:
+        boosts["quick"] += 6
+        labels["quick"].append("短急单点")
+
+    return {"boosts": boosts, "labels": labels}
+
+
+def _score_method(text, method_key, route_context=None):
     profile = METHOD_PROFILES[method_key]
     hits = _contains_any(text, profile["keywords"])
     score = len(hits) * 3
@@ -94,6 +184,9 @@ def _score_method(text, method_key):
     if method_key == "name" and any(word in text for word in ["名", "笔画"]):
         score += 5
 
+    if route_context:
+        score += route_context["boosts"].get(method_key, 0)
+
     return score, hits
 
 
@@ -101,13 +194,15 @@ def recommend_divination_methods(question):
     """按问题文本返回起卦法推荐列表。"""
     text = (question or "").strip()
     normalized = text.lower()
+    route_context = _build_route_context(text) if text else None
     ranked = []
     for key in METHOD_PROFILES:
-        score, hits = _score_method(normalized, key)
+        score, hits = _score_method(normalized, key, route_context)
         ranked.append({
             "key": key,
             "score": score,
             "hits": hits,
+            "rule_hits": route_context["labels"].get(key, []) if route_context else [],
             **METHOD_PROFILES[key],
             "caution": NEGATIVE_HINTS[key],
         })
@@ -129,7 +224,12 @@ def recommend_divination_methods(question):
 
     for item in ranked:
         if "reason" not in item:
-            if item["hits"]:
+            rule_hits = item.get("rule_hits", [])
+            if rule_hits and item["hits"]:
+                item["reason"] = f"规则：{'、'.join(rule_hits)}；命中：{'、'.join(item['hits'][:5])}。{item['fit']}"
+            elif rule_hits:
+                item["reason"] = f"规则：{'、'.join(rule_hits)}。{item['fit']}"
+            elif item["hits"]:
                 item["reason"] = f"命中：{'、'.join(item['hits'][:5])}。{item['fit']}"
             else:
                 item["reason"] = item["fit"]
