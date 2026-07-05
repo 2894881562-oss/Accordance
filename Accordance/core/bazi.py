@@ -387,6 +387,77 @@ def _build_relationship_notes(groups):
     return notes
 
 
+def _ten_god_group(ten_god):
+    return TEN_GOD_GROUP.get(ten_god, "")
+
+
+def _build_useful_profile(day_strength, pattern):
+    level = day_strength["level"]
+    if level == "偏弱":
+        scores = {"印": 1.5, "比劫": 1.2, "食伤": -0.8, "财": -1.0, "官杀": -1.2}
+        favorable = ["印", "比劫"]
+        caution = ["官杀", "财", "食伤"]
+        summary = "日主偏弱，先取印比扶身；官杀、财与食伤会形成压力、耗身或泄身，宜先治理边界。"
+    elif level == "偏强":
+        scores = {"印": -1.2, "比劫": -1.0, "食伤": 1.4, "财": 1.2, "官杀": 1.0}
+        favorable = ["食伤", "财", "官杀"]
+        caution = ["印", "比劫"]
+        summary = "日主偏强，宜取食伤泄秀、财星落地、官杀立规；印比再来容易加厚停滞。"
+    else:
+        dominant = pattern.get("dominant_group", "")
+        scores = {"印": 0.0, "比劫": 0.0, "食伤": 0.0, "财": 0.0, "官杀": 0.0}
+        favorable = []
+        caution = [dominant] if dominant else []
+        summary = (
+            "日主中和，不宜简单定死喜忌；以平衡显著主题为主。"
+            f"当前命局显著主题为{dominant or '未定'}，岁运遇之要看是否过量。"
+        )
+    return {
+        "level": level,
+        "group_scores": scores,
+        "favorable_groups": favorable,
+        "caution_groups": caution,
+        "summary": summary,
+        "principle": "用啥靠啥，治啥得啥；可借力的十神也会消耗自身，需治理的十神也可能转化为成果。",
+    }
+
+
+def _evaluate_timing_gods(gan_ten_god, branch_ten_god, useful_profile):
+    scores = useful_profile.get("group_scores", {})
+    gan_group = _ten_god_group(gan_ten_god)
+    branch_group = _ten_god_group(branch_ten_god)
+    score = scores.get(gan_group, 0.0) * 0.55 + scores.get(branch_group, 0.0) * 0.45
+    score = round(score, 2)
+
+    if score >= 1.0:
+        label = "较可用"
+        tip = "岁运主题与当前取向相合，可借力推进，但仍需现实落地。"
+    elif score >= 0.25:
+        label = "可借力"
+        tip = "有可用之处，但需要主动筛选条件，避免过度依赖。"
+    elif score <= -1.0:
+        label = "压力偏重"
+        tip = "岁运主题对当前结构形成明显压力，宜先降风险、立边界。"
+    elif score <= -0.25:
+        label = "需治理"
+        tip = "主题并非不能用，但要先治理过量、耗身或牵制。"
+    else:
+        label = "中性"
+        tip = "岁运主题偏中性，关键看现实选择、资源配置和节奏。"
+
+    return {
+        "gan_group": gan_group,
+        "branch_group": branch_group,
+        "score": score,
+        "label": label,
+        "tip": tip,
+        "summary": (
+            f"天干{gan_ten_god}属{gan_group or '未知'}，地支主气{branch_ten_god}属{branch_group or '未知'}；"
+            f"岁运取向评分{score:+.2f}，判断为{label}。{tip}"
+        ),
+    }
+
+
 def _nearest_jie_boundary(solar, forward=True):
     candidates = []
     for year in (solar.year - 1, solar.year, solar.year + 1):
@@ -436,7 +507,7 @@ def _build_luck_direction(year_gan, gender):
     }
 
 
-def _build_luck_cycles(solar, pillars, day_gan, gender, current=None, limit=8):
+def _build_luck_cycles(solar, pillars, day_gan, gender, useful_profile, current=None, limit=8):
     year_gan = pillars[0]["gan"]
     month_ganzhi = pillars[1]["ganzhi"]
     direction = _build_luck_direction(year_gan, gender)
@@ -467,6 +538,7 @@ def _build_luck_cycles(solar, pillars, day_gan, gender, current=None, limit=8):
         gan_god = get_ten_god(day_gan, ganzhi[0])
         hidden = DIZHI_HIDDEN_STEMS.get(ganzhi[1], [])
         branch_god = get_ten_god(day_gan, hidden[0][0]) if hidden else "未知"
+        timing_eval = _evaluate_timing_gods(gan_god, branch_god, useful_profile)
         cycle = {
             "index": index + 1,
             "ganzhi": ganzhi,
@@ -476,6 +548,7 @@ def _build_luck_cycles(solar, pillars, day_gan, gender, current=None, limit=8):
             "calendar_end_year": int(solar.year + age_end),
             "gan_ten_god": gan_god,
             "branch_main_ten_god": branch_god,
+            "useful_evaluation": timing_eval,
             "summary": f"{age_start}-{age_end}岁：{ganzhi}大运，天干{gan_god}，地支主气{branch_god}。",
         }
         if age_start <= current_age < age_end:
@@ -495,13 +568,14 @@ def _build_luck_cycles(solar, pillars, day_gan, gender, current=None, limit=8):
     }
 
 
-def _build_current_year_analysis(solar, day_gan, current=None):
+def _build_current_year_analysis(solar, day_gan, useful_profile, current=None):
     current_dt = current or datetime.datetime.now()
     year_ganzhi = get_year_ganzhi_by_date(current_dt)
     hidden = DIZHI_HIDDEN_STEMS.get(year_ganzhi[1], [])
     hidden_text = "、".join(f"{stem}{get_ten_god(day_gan, stem)}" for stem, _ in hidden)
     gan_god = get_ten_god(day_gan, year_ganzhi[0])
     main_branch_god = get_ten_god(day_gan, hidden[0][0]) if hidden else "未知"
+    timing_eval = _evaluate_timing_gods(gan_god, main_branch_god, useful_profile)
     age = _solar_age_years(solar, current_dt)
     return {
         "year": current_dt.year,
@@ -510,10 +584,57 @@ def _build_current_year_analysis(solar, day_gan, current=None):
         "gan_ten_god": gan_god,
         "branch_main_ten_god": main_branch_god,
         "hidden_ten_gods": hidden_text,
+        "useful_evaluation": timing_eval,
         "summary": (
             f"{current_dt.year}年流年{year_ganzhi}，天干为{gan_god}，"
             f"地支主气为{main_branch_god}；当前约{age}岁。"
         ),
+    }
+
+
+def _build_current_timing_analysis(luck_cycles, current_year):
+    current_cycle = luck_cycles.get("current_cycle")
+    year_eval = current_year.get("useful_evaluation", {})
+    if not current_cycle:
+        return {
+            "combined_score": year_eval.get("score", 0),
+            "level": "流年单看",
+            "summary": f"当前未定位到大运，仅看流年：{year_eval.get('summary', '')}",
+            "action_tip": year_eval.get("tip", ""),
+            "details": [year_eval.get("summary", "")],
+        }
+
+    cycle_eval = current_cycle.get("useful_evaluation", {})
+    combined = round(cycle_eval.get("score", 0) * 0.65 + year_eval.get("score", 0) * 0.35, 2)
+    if combined >= 0.9:
+        level = "岁运可用"
+        action = "当前大运与流年总体可借力，宜把优势落实为计划、交付和资源配置。"
+    elif combined >= 0.2:
+        level = "有用有压"
+        action = "当前岁运有可用处，也有牵制点，宜小步推进并保持复盘。"
+    elif combined <= -0.9:
+        level = "压力偏重"
+        action = "当前岁运压力较重，宜先守底线、降杠杆、稳健康与关系边界。"
+    elif combined <= -0.2:
+        level = "先治后用"
+        action = "当前岁运需先治理过量或耗身之处，再把压力转成成果。"
+    else:
+        level = "中性待用"
+        action = "当前岁运不偏一端，关键在现实判断、节奏控制和持续执行。"
+
+    return {
+        "combined_score": combined,
+        "level": level,
+        "summary": (
+            f"当前大运{current_cycle['ganzhi']}为{cycle_eval.get('label', '未评估')}，"
+            f"流年{current_year['ganzhi']}为{year_eval.get('label', '未评估')}；"
+            f"岁运合看评分{combined:+.2f}，判断为{level}。"
+        ),
+        "action_tip": action,
+        "details": [
+            f"大运：{cycle_eval.get('summary', '')}",
+            f"流年：{year_eval.get('summary', '')}",
+        ],
     }
 
 
@@ -574,12 +695,10 @@ def _build_hour_candidates(solar, day_gan):
     }
 
 
-def _build_plain_conclusion(day_strength, pattern, luck_cycles=None, current_year=None):
+def _build_plain_conclusion(day_strength, pattern, current_timing=None):
     timing = ""
-    if luck_cycles and luck_cycles.get("current_cycle"):
-        timing += f"当前大运为{luck_cycles['current_cycle']['ganzhi']}。"
-    if current_year:
-        timing += f"当前流年为{current_year['ganzhi']}。"
+    if current_timing:
+        timing = f"岁运同参为{current_timing['level']}。"
     return (
         f"日主为{day_strength['day_gan']}{day_strength['day_element']}，"
         f"按当前简化评分属{day_strength['level']}。"
@@ -600,11 +719,13 @@ def analyze_bazi_birth(birth_date, birth_hour, birth_minute=0, gender: Optional[
     ten_god_counts = _build_ten_god_counts(pillars)
     day_strength = _analyze_day_master(day_gan, yueling, element_balance)
     pattern = _build_pattern_analysis(day_strength, ten_god_counts)
+    useful_profile = _build_useful_profile(day_strength, pattern)
     stages = _build_stage_analysis(pillars)
     inner_outer = _build_inner_outer_analysis(pillars)
     relationship_notes = _build_relationship_notes(ten_god_counts["groups"])
-    luck_cycles = _build_luck_cycles(solar, pillars, day_gan, gender, current=current)
-    current_year = _build_current_year_analysis(solar, day_gan, current=current)
+    luck_cycles = _build_luck_cycles(solar, pillars, day_gan, gender, useful_profile, current=current)
+    current_year = _build_current_year_analysis(solar, day_gan, useful_profile, current=current)
+    current_timing = _build_current_timing_analysis(luck_cycles, current_year)
     hour_candidates = _build_hour_candidates(solar, day_gan)
 
     return {
@@ -622,11 +743,13 @@ def analyze_bazi_birth(birth_date, birth_hour, birth_minute=0, gender: Optional[
         "stage_analysis": stages,
         "inner_outer": inner_outer,
         "pattern_analysis": pattern,
+        "useful_profile": useful_profile,
         "luck_cycles": luck_cycles,
         "current_year": current_year,
+        "current_timing_analysis": current_timing,
         "hour_candidates": hour_candidates,
         "relationship_notes": relationship_notes,
-        "plain_conclusion": _build_plain_conclusion(day_strength, pattern, luck_cycles, current_year),
+        "plain_conclusion": _build_plain_conclusion(day_strength, pattern, current_timing),
         "boundary_note": (
             "本功能按公历生日、近似节气分界排四柱；年柱以2月4日近似立春，"
             "月柱按节气月建近似，大运起运按近似节气折算，未精确到节气时分，也未细分晚子时换日流派。"
@@ -666,12 +789,27 @@ def format_bazi_report(result: Dict[str, Any]):
     pattern = result["pattern_analysis"]
     lines.append(f"{pattern['pattern']}：{pattern['strategy']}{pattern['note']}")
     lines.append("")
+    lines.append("【喜忌取向】")
+    useful = result["useful_profile"]
+    lines.append(useful["summary"])
+    lines.append(f"可借力：{'、'.join(useful['favorable_groups']) or '不固定'}；需治理：{'、'.join(useful['caution_groups']) or '不固定'}。")
+    lines.append(useful["principle"])
+    lines.append("")
+    lines.append("【岁运同参】")
+    timing = result["current_timing_analysis"]
+    lines.append(timing["summary"])
+    lines.append(timing["action_tip"])
+    for detail in timing["details"]:
+        if detail:
+            lines.append(detail)
+    lines.append("")
     lines.append("【大运流年】")
     luck = result["luck_cycles"]
     lines.append(luck["summary"])
     for cycle in luck.get("cycles", [])[:8]:
         current_mark = " ← 当前" if luck.get("current_cycle") and cycle["index"] == luck["current_cycle"]["index"] else ""
-        lines.append(f"{cycle['summary']}约{cycle['calendar_start_year']}-{cycle['calendar_end_year']}年。{current_mark}")
+        eval_text = cycle.get("useful_evaluation", {}).get("label", "")
+        lines.append(f"{cycle['summary']}约{cycle['calendar_start_year']}-{cycle['calendar_end_year']}年。{eval_text}{current_mark}")
     current_year = result["current_year"]
     lines.append(current_year["summary"])
     lines.append("")

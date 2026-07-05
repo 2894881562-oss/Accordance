@@ -338,6 +338,12 @@ def audit_bazi_rules():
             issues.append(_issue("error", "八字", "八字样例未生成当前流年"))
         if len(result.get("hour_candidates", {}).get("candidates", [])) != 3:
             issues.append(_issue("error", "八字", "八字样例未生成三组临界时辰候选"))
+        useful = result.get("useful_profile", {})
+        if "group_scores" not in useful or not useful.get("principle"):
+            issues.append(_issue("error", "八字", "八字样例未生成喜忌取向"))
+        timing = result.get("current_timing_analysis", {})
+        if "combined_score" not in timing or not timing.get("summary"):
+            issues.append(_issue("error", "八字", "八字样例未生成岁运同参"))
     except Exception as exc:
         issues.append(_issue("error", "八字", "八字样例分析失败", str(exc)))
 

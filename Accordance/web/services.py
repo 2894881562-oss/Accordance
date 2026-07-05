@@ -130,8 +130,10 @@ def _format_bazi_hidden(hidden_stems):
 def _bazi_sections(result):
     day_master = result["day_master"]
     pattern = result["pattern_analysis"]
+    useful = result["useful_profile"]
     luck = result["luck_cycles"]
     current_year = result["current_year"]
+    timing = result["current_timing_analysis"]
     hour_candidates = result["hour_candidates"]
     return [
         _section("四柱", [
@@ -165,11 +167,23 @@ def _bazi_sections(result):
             f"显著十神：{pattern['top_ten_gods']}",
             pattern["note"],
         ]),
+        _section("喜忌取向", [
+            useful["summary"],
+            f"可借力：{'、'.join(useful['favorable_groups']) or '不固定'}",
+            f"需治理：{'、'.join(useful['caution_groups']) or '不固定'}",
+            useful["principle"],
+        ]),
+        _section("岁运同参", [
+            timing["summary"],
+            timing["action_tip"],
+            *timing["details"],
+        ]),
         _section("大运流年", [
             luck["summary"],
             *[
                 (
                     f"{cycle['summary']}约{cycle['calendar_start_year']}-{cycle['calendar_end_year']}年。"
+                    f"{cycle.get('useful_evaluation', {}).get('label', '')}。"
                     f"{'当前所处大运。' if luck.get('current_cycle') and cycle['index'] == luck['current_cycle']['index'] else ''}"
                 )
                 for cycle in luck.get("cycles", [])[:8]
