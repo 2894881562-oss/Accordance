@@ -25,6 +25,11 @@ class DivinationRequest(BaseModel):
     option_a: Optional[str] = Field("", max_length=120)
     option_b: Optional[str] = Field("", max_length=120)
 
+    birth_date: Optional[str] = Field("", max_length=10)
+    birth_hour: Optional[int] = Field(None, ge=0, le=23)
+    birth_minute: Optional[int] = Field(0, ge=0, le=59)
+    gender: Optional[str] = Field("", max_length=12)
+
 
 class MethodSelectorRequest(BaseModel):
     question: str = Field("", max_length=200)

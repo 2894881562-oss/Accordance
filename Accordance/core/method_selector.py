@@ -37,6 +37,16 @@ METHOD_PROFILES = {
         "basis": "姓名起卦以名号笔画立象，适合审名号与人事关系的象意。",
         "keywords": ["姓名", "名字", "改名", "起名", "笔画", "公司名", "品牌名", "店名", "艺名"],
     },
+    "bazi": {
+        "menu": "9",
+        "name": "四柱八字",
+        "fit": "已知公历出生日期和时辰，想看四柱、十神、日主强弱、阶段倾向的问题。",
+        "basis": "八字以年、月、日、时四柱为结构，以日干为核心分析其余七字的生克比关系。",
+        "keywords": [
+            "八字", "四柱", "命理", "出生", "生日", "生辰", "时辰", "日主", "日干",
+            "十神", "正印", "偏印", "食神", "伤官", "正官", "七杀", "正财", "偏财", "比肩", "劫财",
+        ],
+    },
     "daily": {
         "menu": "4",
         "name": "当日气运",
@@ -65,6 +75,7 @@ NEGATIVE_HINTS = {
     "full": "若只是眼前小事，六爻会显得过重。",
     "quick": "若牵涉合同、健康、法律、长期结果，三爻信息量不足。",
     "name": "若问题不是名号本身，姓名起卦容易偏离事体。",
+    "bazi": "若没有可靠出生日期与时辰，八字分析只能做粗略参考；具体决策仍需回到现实信息。",
     "daily": "若已有明确问题，应改用对应起卦法。",
     "item": "若物品可能已离身或范围很大，寻物专项只能先给搜索启示，宜转六爻详占。",
     "decision": "若选项不止两个或问题本身尚未厘清，应先整理为明确方案。",
@@ -80,6 +91,7 @@ HIGH_STAKES_TERMS = [
 ITEM_OBJECT_TERMS = ["东西", "物品", "钥匙", "手机", "证件", "钱包", "文件", "卡", "包"]
 ITEM_ACTION_TERMS = ["寻物", "找东西", "寻找", "找回", "丢", "丢失", "失物", "遗失", "落下", "不见"]
 NAME_TERMS = ["姓名", "名字", "改名", "起名", "笔画", "公司名", "品牌名", "店名", "艺名"]
+BAZI_TERMS = ["八字", "四柱", "命理", "出生", "生日", "生辰", "时辰", "日主", "日干", "十神"]
 DAILY_TERMS = ["今日", "今天", "当天", "日运", "气运", "运势", "整体", "行事"]
 QUICK_TERMS = ["现在", "马上", "今天", "明天", "短期", "临时", "急", "要不要", "该不该", "能不能", "可不可以", "是否"]
 COMPLEX_TERMS = ["长期", "重大", "复杂", "前因后果", "多方", "结果", "趋势", "风险"]
@@ -117,6 +129,7 @@ def _build_route_context(text):
     )
     decision_hit = _looks_like_two_options(text)
     name_hit = _has_any(normalized, NAME_TERMS)
+    bazi_hit = _has_any(normalized, BAZI_TERMS)
     daily_hit = _has_any(normalized, DAILY_TERMS)
     high_stakes_hit = _has_any(normalized, HIGH_STAKES_TERMS)
     complex_hit = _has_any(normalized, COMPLEX_TERMS)
@@ -141,7 +154,13 @@ def _build_route_context(text):
         boosts["full"] -= 1
         labels["name"].append("名号笔画强场景")
 
-    if daily_hit and not (item_hit or decision_hit or name_hit or high_stakes_hit):
+    if bazi_hit:
+        boosts["bazi"] += 14
+        boosts["name"] -= 3
+        boosts["daily"] -= 3
+        labels["bazi"].append("出生四柱强场景")
+
+    if daily_hit and not (item_hit or decision_hit or name_hit or bazi_hit or high_stakes_hit):
         boosts["daily"] += 10
         labels["daily"].append("当日整体基调")
     elif daily_hit:
@@ -156,7 +175,7 @@ def _build_route_context(text):
         boosts["full"] += 7
         labels["full"].append("复杂事项")
 
-    if quick_hit and not high_stakes_hit and not complex_hit and not item_hit and not decision_hit and not name_hit:
+    if quick_hit and not high_stakes_hit and not complex_hit and not item_hit and not decision_hit and not name_hit and not bazi_hit:
         boosts["quick"] += 6
         labels["quick"].append("短急单点")
 

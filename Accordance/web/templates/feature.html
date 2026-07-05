@@ -76,6 +76,27 @@
       </label>
     {% endif %}
 
+    {% if key == "bazi" %}
+      <label>公历出生日期
+        <input name="birth_date" type="date" required>
+      </label>
+      <div class="split">
+        <label>出生小时
+          <input name="birth_hour" type="number" min="0" max="23" required placeholder="0-23">
+        </label>
+        <label>出生分钟
+          <input name="birth_minute" type="number" min="0" max="59" value="0" required>
+        </label>
+      </div>
+      <label>性别（可选）
+        <select name="gender">
+          <option value="">不指定</option>
+          <option value="男">男</option>
+          <option value="女">女</option>
+        </select>
+      </label>
+    {% endif %}
+
     {% if key == "daily" %}
       <p class="muted">当日气运按当天时间起卦，同一天内基调相对稳定。</p>
     {% endif %}

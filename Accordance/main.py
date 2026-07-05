@@ -16,6 +16,7 @@ from modules.daily_fortune import run_daily_fortune
 from modules.item_search import run_item_search
 from modules.decision_helper import run_decision_helper
 from modules.method_selector import run_method_selector
+from modules.bazi import run_bazi_analysis
 from modules.rule_audit import run_rule_audit_cli
 from core.question_history import show_history
 
@@ -27,7 +28,7 @@ def print_separator():
 def print_title():
     """打印系统标题"""
     print_separator()
-    print(" " * 18 + "《周易》六爻纳甲 · 梅花易数")
+    print(" " * 14 + "《周易》六爻纳甲 · 梅花易数 · 四柱八字")
     print(" " * 18 + "—— 易为君子谋，卦为镜鉴，人为本 ——")
     print_separator()
     print("  核心准则：无意则为天意，天意勿去刻意")
@@ -47,7 +48,8 @@ def main_menu():
     print("6. 二选一决策辅助（双卦对比 + 风险分析）")
     print("7. 查看近期起卦记录")
     print("8. 起卦法选择器（按问题推荐入口）")
-    print("9. 规则数据审计（纳甲/世应/卦象校准/选择器）")
+    print("9. 四柱八字基础分析（十神/强弱/阶段/格局倾向）")
+    print("10. 规则数据审计（纳甲/世应/八字/选择器）")
     print("0. 退出系统")
 
     print_separator()
@@ -93,6 +95,9 @@ def main():
             run_method_selector()
 
         elif choice == "9":
+            run_bazi_analysis()
+
+        elif choice == "10":
             run_rule_audit_cli()
 
         else:

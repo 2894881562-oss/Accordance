@@ -5,7 +5,7 @@
     const data = new FormData(form);
     const obj = {};
     for (const [key, value] of data.entries()) {
-      if (key === "focus_seed" || key.endsWith("_stroke")) {
+      if (key === "focus_seed" || key.endsWith("_stroke") || key === "birth_hour" || key === "birth_minute") {
         obj[key] = value === "" ? null : Number(value);
       } else if (key === "force") {
         obj[key] = value === "true";

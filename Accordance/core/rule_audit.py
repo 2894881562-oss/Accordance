@@ -6,6 +6,7 @@
 """
 
 from config.bagua_data import NUM_TO_GUA_NAME, PALACE_HEXAGRAMS, PALACE_WUXING
+from config.bazi_data import DIZHI_HIDDEN_STEMS, GAN_YINYANG, TEN_GOD_GROUP
 from config.hexagram_calibration import HEXAGRAM_CALIBRATION, build_calibration_tip
 from config.hexagram_data import HEXAGRAM_DATA
 from config.naja_data import BAGUA_NAJIA, BAGUA_SHI_YING, LIUSHEN_ORDER, LIUSHEN_START, NAYIN_TABLE
@@ -20,6 +21,7 @@ from core.zhuanggua import (
     get_shi_ying,
     get_shi_ying_by_key,
 )
+from core.bazi import analyze_bazi_birth, get_ten_god
 
 
 TIANGAN_ORDER = set(TIANGAN_WUXING)
@@ -260,6 +262,7 @@ def audit_method_selector_profiles():
         ("今天整体运势怎么样", "daily"),
         ("A方案还是B方案更适合", "decision"),
         ("这个公司名适合吗，按笔画看", "name"),
+        ("我想看八字四柱和十神", "bazi"),
         ("这个合同长期合作风险如何", "full"),
         ("现在要不要马上联系他", "quick"),
     ]
@@ -277,6 +280,64 @@ def audit_method_selector_profiles():
     return issues
 
 
+def audit_bazi_rules():
+    """校验八字基础表和十神计算。"""
+    issues = []
+    if set(GAN_YINYANG) != set(TIANGAN_ORDER):
+        issues.append(_issue(
+            "error",
+            "八字",
+            "天干阴阳表未覆盖十天干",
+            f"missing={sorted(TIANGAN_ORDER - set(GAN_YINYANG))} extra={sorted(set(GAN_YINYANG) - TIANGAN_ORDER)}",
+        ))
+    if set(DIZHI_HIDDEN_STEMS) != VALID_DIZHI:
+        issues.append(_issue(
+            "error",
+            "八字",
+            "藏干表未覆盖十二地支",
+            f"missing={sorted(VALID_DIZHI - set(DIZHI_HIDDEN_STEMS))} extra={sorted(set(DIZHI_HIDDEN_STEMS) - VALID_DIZHI)}",
+        ))
+    for dizhi, hidden_stems in DIZHI_HIDDEN_STEMS.items():
+        weight_sum = round(sum(weight for _, weight in hidden_stems), 2)
+        if weight_sum != 1.0:
+            issues.append(_issue("warning", "八字", f"{dizhi}藏干权重合计不是1.0", str(weight_sum)))
+        for stem, weight in hidden_stems:
+            if stem not in TIANGAN_ORDER:
+                issues.append(_issue("error", "八字", f"{dizhi}藏干出现未知天干", stem))
+            if weight <= 0:
+                issues.append(_issue("error", "八字", f"{dizhi}藏干权重必须为正", f"{stem}:{weight}"))
+
+    expected_samples = {
+        ("甲", "甲"): "比肩",
+        ("甲", "乙"): "劫财",
+        ("甲", "癸"): "正印",
+        ("甲", "壬"): "偏印",
+        ("甲", "丙"): "食神",
+        ("甲", "丁"): "伤官",
+        ("甲", "己"): "正财",
+        ("甲", "戊"): "偏财",
+        ("甲", "辛"): "正官",
+        ("甲", "庚"): "七杀",
+    }
+    for args, expected in expected_samples.items():
+        actual = get_ten_god(*args)
+        if actual != expected:
+            issues.append(_issue("error", "八字", "十神样例计算错误", f"{args}: actual={actual} expected={expected}"))
+
+    for god, group in TEN_GOD_GROUP.items():
+        if group not in {"印", "食伤", "官杀", "财", "比劫"}:
+            issues.append(_issue("error", "八字", f"{god} 十神分组非法", group))
+
+    try:
+        result = analyze_bazi_birth("1990-01-01", 8, 30)
+        if len(result.get("pillars", [])) != 4 or len(result.get("bazi", "").split()) != 4:
+            issues.append(_issue("error", "八字", "八字样例未生成四柱", str(result.get("bazi"))))
+    except Exception as exc:
+        issues.append(_issue("error", "八字", "八字样例分析失败", str(exc)))
+
+    return issues
+
+
 def run_rule_audit():
     """运行完整规则审计。"""
     checks = [
@@ -286,6 +347,7 @@ def run_rule_audit():
         ("六神规则", audit_liushen_rules),
         ("六十四卦象义校准", audit_hexagram_calibration),
         ("起卦法选择器", audit_method_selector_profiles),
+        ("八字规则", audit_bazi_rules),
     ]
     issues = []
     for _, check in checks:
@@ -311,7 +373,7 @@ def format_rule_audit_report(audit_result=None):
         f"错误：{result['error_count']}；警告：{result['warning_count']}",
     ]
     if not result["issues"]:
-        lines.append("纳甲、世应、八宫、六十四卦象义校准和起卦法选择器配置均已通过一致性校验。")
+        lines.append("纳甲、世应、八宫、六十四卦象义校准、八字规则和起卦法选择器配置均已通过一致性校验。")
         return "\n".join(lines)
 
     for issue in result["issues"]:

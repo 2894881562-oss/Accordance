@@ -3,6 +3,7 @@
 
 from typing import Any, Dict, List
 
+from core.bazi import analyze_bazi_birth
 from core.divination import (
     daily_guidance_gua,
     dynamic_three_yao_quick_divination,
@@ -32,6 +33,7 @@ FEATURES = {
     "daily": {"name": "当日气运", "label": "当日气运", "method_key": "daily"},
     "item": {"name": "寻物专项", "label": "寻物专项占", "method_key": "item"},
     "decision": {"name": "二选一决策", "label": "二选一决策", "method_key": "decision"},
+    "bazi": {"name": "四柱八字", "label": "四柱八字基础分析", "method_key": "bazi"},
 }
 
 
@@ -118,6 +120,56 @@ def _three_yao_sections(result, info):
     ]
 
 
+def _format_bazi_hidden(hidden_stems):
+    return "、".join(
+        f"{item['stem']}{item['ten_god']}({item['weight']:.1f})"
+        for item in hidden_stems
+    )
+
+
+def _bazi_sections(result):
+    day_master = result["day_master"]
+    pattern = result["pattern_analysis"]
+    return [
+        _section("四柱", [
+            f"出生：{result['birth']['date']} {result['birth']['time']}（{result['birth']['calendar']}）",
+            f"八字：{result['bazi']}",
+            *[
+                (
+                    f"{pillar['name']} {pillar['ganzhi']}：天干{pillar['gan']}{pillar['stem_ten_god']}；"
+                    f"地支{pillar['zhi']}藏干[{_format_bazi_hidden(pillar['hidden_stems'])}]"
+                )
+                for pillar in result["pillars"]
+            ],
+        ]),
+        _section("日主与五行", [
+            (
+                f"日主：{day_master['day_gan']}{day_master['day_element']}；"
+                f"月令：{day_master['yueling']}；季节状态：{day_master['season_status']}；"
+                f"判断：{day_master['level']}（评分{day_master['score']}）"
+            ),
+            f"五行分布：{result['element_balance']}",
+            f"十神分组：{result['ten_god_counts']['groups']}",
+            day_master["advice"],
+        ]),
+        _section("阶段提示", [item["summary"] for item in result["stage_analysis"]]),
+        _section("内外气质", [
+            result["inner_outer"]["summary"],
+            "出生时辰临界时，此项只能辅助观察，不能单独反推时辰。",
+        ]),
+        _section("格局倾向", [
+            f"{pattern['pattern']}：{pattern['strategy']}",
+            f"显著十神：{pattern['top_ten_gods']}",
+            pattern["note"],
+        ]),
+        _section("关系双向性", result["relationship_notes"]),
+        _section("边界", [
+            result["boundary_note"],
+            "八字用于传统文化研究和自我观察，不替代现实证据、专业意见和个人选择。",
+        ]),
+    ]
+
+
 def _record_if_needed(client_id, question, module_label, summary, should_record=True):
     if should_record:
         record_question(client_id, question, module_label, summary)
@@ -164,6 +216,8 @@ def run_divination(feature_key, payload, client_id):
         return _run_item(payload, client_id)
     if feature_key == "decision":
         return _run_decision(payload, client_id)
+    if feature_key == "bazi":
+        return _run_bazi(payload, client_id)
     raise ValueError("未知功能入口")
 
 
@@ -381,6 +435,25 @@ def _run_decision(payload, client_id):
         "raw_result": {"option_a": result_a, "option_b": result_b},
         "duplicate_check": duplicate,
         "history_recorded": recorded,
+    }
+
+
+def _run_bazi(payload, client_id):
+    result = analyze_bazi_birth(
+        payload.birth_date,
+        payload.birth_hour,
+        payload.birth_minute,
+        payload.gender,
+    )
+    summary = f"{result['birth']['date']} {result['birth']['time']}：{result['bazi']}"
+    record_question(client_id, f"八字分析：{summary}", "四柱八字", result["plain_conclusion"])
+    return {
+        "plain_conclusion": result["plain_conclusion"],
+        "summary": summary,
+        "sections": _bazi_sections(result),
+        "raw_result": {"bazi": result},
+        "duplicate_check": {"is_duplicate": False, "action": "none"},
+        "history_recorded": True,
     }
 
 
