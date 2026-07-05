@@ -27,6 +27,12 @@ def _dispatch(menu, question):
     elif menu == "6":
         from modules.decision_helper import run_decision_helper
         run_decision_helper(prefilled_question=question)
+    elif menu == "9":
+        from modules.bazi import run_bazi_analysis
+        run_bazi_analysis()
+    elif menu == "10":
+        from modules.qimen import run_qimen_analysis
+        run_qimen_analysis(prefilled_topic=question)
 
 
 def run_method_selector():
@@ -43,6 +49,7 @@ def run_method_selector():
     print()
     print("传统取法：事大、事杂、要看过程者取六爻；事急、单点、短期者取三爻；")
     print("名号相关取姓名起卦；当日整体基调用日卦；失物用寻物专项；两案取舍用二选一。")
+    print("出生结构取八字；方位、择时、谈判竞争布局取奇门运筹。")
     _sep("═")
 
     first = ranked[0]

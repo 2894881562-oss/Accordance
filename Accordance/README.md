@@ -37,6 +37,7 @@ uvicorn web.app:app --host 0.0.0.0 --port 8000
 config/                    基础数据与规则
   bagua_data.py              八卦、八宫、体用生克象义
   bazi_data.py               八字十神、藏干、阶段与格局基础数据
+  qimen_data.py              奇门九宫、八门、九星、八神、三奇六仪与场景规则
   hexagram_data.py            六十四卦全录（卦辞+爻辞+互错综映射）
   hexagram_calibration.py     六十四卦象义校准（主轴/宜用/风险）
   naja_data.py                京房纳甲、世应、六亲六神十二长生
@@ -49,6 +50,7 @@ config/                    基础数据与规则
 
 core/                    核心逻辑
   bazi.py                     四柱八字基础分析 + 大运流年 + 临界时辰对照
+  qimen.py                    奇门运筹分析（方位/时机/格局，简化九宫盘）
   divination.py               多种起卦法（时间/动态/姓名/三爻/日卦）
   zhuanggua.py                完整装卦引擎 + 卦身 + 进神退神 + 反吟伏吟
   interpretation.py           综合解卦（纳甲+体用+用神+彖传+卦身+神煞+简短结论）
@@ -60,6 +62,7 @@ core/                    核心逻辑
 
 modules/                 功能模块
   bazi.py                     八字基础分析 CLI
+  qimen.py                    奇门运筹 CLI
   full_divination.py          六爻详占
   quick_divination.py         三爻快占
   name_divination.py          姓名起卦

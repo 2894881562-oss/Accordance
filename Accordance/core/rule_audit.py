@@ -5,13 +5,27 @@
 中最容易手写漂移的规则集中校验，便于每次改规则后快速回归。
 """
 
+import datetime
+
 from config.bagua_data import NUM_TO_GUA_NAME, PALACE_HEXAGRAMS, PALACE_WUXING
 from config.bazi_data import DIZHI_HIDDEN_STEMS, GAN_YINYANG, TEN_GOD_GROUP
 from config.hexagram_calibration import HEXAGRAM_CALIBRATION, build_calibration_tip
 from config.hexagram_data import HEXAGRAM_DATA
 from config.naja_data import BAGUA_NAJIA, BAGUA_SHI_YING, LIUSHEN_ORDER, LIUSHEN_START, NAYIN_TABLE
+from config.qimen_data import (
+    EIGHT_DOORS,
+    EIGHT_GODS,
+    NINE_STARS,
+    OUTER_PALACE_KEYS,
+    QIMEN_PALACES,
+    QIMEN_SCENARIO_RULES,
+    QIMEN_STEM_ORDER,
+    SIX_YI,
+    THREE_QI,
+)
 from config.wuxing_rules import DIZHI_ORDER, DIZHI_WUXING, TIANGAN_WUXING
 from core.method_selector import METHOD_PROFILES, NEGATIVE_HINTS, recommend_divination_methods
+from core.qimen import analyze_qimen
 from core.zhuanggua import (
     SHI_YING_BY_PALACE_INDEX,
     get_changsheng_for_line,
@@ -263,6 +277,7 @@ def audit_method_selector_profiles():
         ("A方案还是B方案更适合", "decision"),
         ("这个公司名适合吗，按笔画看", "name"),
         ("我想看八字四柱和十神", "bazi"),
+        ("明天谈判从哪个方位切入更有利", "qimen"),
         ("这个合同长期合作风险如何", "full"),
         ("现在要不要马上联系他", "quick"),
     ]
@@ -350,6 +365,85 @@ def audit_bazi_rules():
     return issues
 
 
+def audit_qimen_rules():
+    """校验奇门运筹基础表和样例起局。"""
+    issues = []
+    valid_elements = {"木", "火", "土", "金", "水"}
+
+    if len(QIMEN_PALACES) != 9:
+        issues.append(_issue("error", "奇门", "九宫表数量不是 9", str(len(QIMEN_PALACES))))
+    palace_keys = [item.get("key") for item in QIMEN_PALACES]
+    if len(set(palace_keys)) != len(palace_keys):
+        issues.append(_issue("error", "奇门", "九宫 key 存在重复", str(palace_keys)))
+    if set(OUTER_PALACE_KEYS) != (set(palace_keys) - {"center"}):
+        issues.append(_issue(
+            "error",
+            "奇门",
+            "外八宫 key 与九宫表不一致",
+            f"outer={OUTER_PALACE_KEYS} palaces={palace_keys}",
+        ))
+
+    for palace in QIMEN_PALACES:
+        if palace.get("element") not in valid_elements:
+            issues.append(_issue("error", "奇门", f"{palace.get('name')} 五行非法", palace.get("element", "")))
+        if palace.get("key") != "center" and not palace.get("direction"):
+            issues.append(_issue("error", "奇门", f"{palace.get('name')} 缺少方位"))
+
+    if len(EIGHT_DOORS) != 8:
+        issues.append(_issue("error", "奇门", "八门数量不是 8", str(len(EIGHT_DOORS))))
+    for door, data in EIGHT_DOORS.items():
+        if data.get("element") not in valid_elements:
+            issues.append(_issue("error", "奇门", f"{door}门五行非法", data.get("element", "")))
+        if "score" not in data or "strategy" not in data:
+            issues.append(_issue("error", "奇门", f"{door}门缺少评分或策略"))
+
+    if len(NINE_STARS) != 9:
+        issues.append(_issue("error", "奇门", "九星数量不是 9", str(len(NINE_STARS))))
+    if "天禽" not in NINE_STARS:
+        issues.append(_issue("error", "奇门", "九星缺少中宫天禽"))
+    for star, data in NINE_STARS.items():
+        if data.get("element") not in valid_elements:
+            issues.append(_issue("error", "奇门", f"{star}五行非法", data.get("element", "")))
+
+    if len(EIGHT_GODS) != 8:
+        issues.append(_issue("error", "奇门", "八神数量不是 8", str(len(EIGHT_GODS))))
+    if len(set(QIMEN_STEM_ORDER)) != 9 or set(QIMEN_STEM_ORDER) != set(THREE_QI + SIX_YI):
+        issues.append(_issue("error", "奇门", "三奇六仪顺序未覆盖 9 个天干", str(QIMEN_STEM_ORDER)))
+
+    for key, rule in QIMEN_SCENARIO_RULES.items():
+        for field in ("name", "prefer_doors", "avoid_doors", "prefer_stars", "avoid_stars", "prefer_gods", "avoid_gods", "action"):
+            if field not in rule:
+                issues.append(_issue("error", "奇门", f"{key} 场景规则缺少字段 {field}"))
+        for door in rule.get("prefer_doors", []) + rule.get("avoid_doors", []):
+            if door not in EIGHT_DOORS:
+                issues.append(_issue("error", "奇门", f"{key} 场景引用未知八门", door))
+        for star in rule.get("prefer_stars", []) + rule.get("avoid_stars", []):
+            if star not in NINE_STARS:
+                issues.append(_issue("error", "奇门", f"{key} 场景引用未知九星", star))
+        for god in rule.get("prefer_gods", []) + rule.get("avoid_gods", []):
+            if god not in EIGHT_GODS:
+                issues.append(_issue("error", "奇门", f"{key} 场景引用未知八神", god))
+
+    try:
+        result = analyze_qimen(
+            topic="明天谈判从哪个方位切入更有利",
+            direction="东南",
+            current=datetime.datetime(2026, 7, 5, 15, 30),
+        )
+        if len(result.get("board", [])) != 9:
+            issues.append(_issue("error", "奇门", "样例起局未生成九宫盘"))
+        if len(result.get("best_palaces", [])) != 3 or len(result.get("avoid_palaces", [])) != 3:
+            issues.append(_issue("error", "奇门", "样例起局未生成推荐/慎用方位"))
+        if result.get("scenario", {}).get("key") != "negotiation":
+            issues.append(_issue("error", "奇门", "样例谈判场景识别错误", str(result.get("scenario"))))
+        if "风后奇门" not in result.get("fenghou_boundary", ""):
+            issues.append(_issue("error", "奇门", "样例结果缺少风后奇门边界声明"))
+    except Exception as exc:
+        issues.append(_issue("error", "奇门", "样例起局失败", str(exc)))
+
+    return issues
+
+
 def run_rule_audit():
     """运行完整规则审计。"""
     checks = [
@@ -360,6 +454,7 @@ def run_rule_audit():
         ("六十四卦象义校准", audit_hexagram_calibration),
         ("起卦法选择器", audit_method_selector_profiles),
         ("八字规则", audit_bazi_rules),
+        ("奇门规则", audit_qimen_rules),
     ]
     issues = []
     for _, check in checks:
@@ -385,7 +480,7 @@ def format_rule_audit_report(audit_result=None):
         f"错误：{result['error_count']}；警告：{result['warning_count']}",
     ]
     if not result["issues"]:
-        lines.append("纳甲、世应、八宫、六十四卦象义校准、八字规则和起卦法选择器配置均已通过一致性校验。")
+        lines.append("纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则和起卦法选择器配置均已通过一致性校验。")
         return "\n".join(lines)
 
     for issue in result["issues"]:
