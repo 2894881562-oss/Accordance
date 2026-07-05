@@ -48,7 +48,7 @@ config/                    基础数据与规则
   traditional_sources.py      传统依据链、问类现实校验与实占边界
 
 core/                    核心逻辑
-  bazi.py                     四柱八字基础分析
+  bazi.py                     四柱八字基础分析 + 大运流年 + 临界时辰对照
   divination.py               多种起卦法（时间/动态/姓名/三爻/日卦）
   zhuanggua.py                完整装卦引擎 + 卦身 + 进神退神 + 反吟伏吟
   interpretation.py           综合解卦（纳甲+体用+用神+彖传+卦身+神煞+简短结论）
@@ -59,7 +59,7 @@ core/                    核心逻辑
   question_precheck.py        起卦前问事校准（问类/用神/方法边界）
 
 modules/                 功能模块
-  bazi.py                     八字基础分析
+  bazi.py                     八字基础分析 CLI
   full_divination.py          六爻详占
   quick_divination.py         三爻快占
   name_divination.py          姓名起卦

@@ -130,6 +130,9 @@ def _format_bazi_hidden(hidden_stems):
 def _bazi_sections(result):
     day_master = result["day_master"]
     pattern = result["pattern_analysis"]
+    luck = result["luck_cycles"]
+    current_year = result["current_year"]
+    hour_candidates = result["hour_candidates"]
     return [
         _section("四柱", [
             f"出生：{result['birth']['date']} {result['birth']['time']}（{result['birth']['calendar']}）",
@@ -161,6 +164,27 @@ def _bazi_sections(result):
             f"{pattern['pattern']}：{pattern['strategy']}",
             f"显著十神：{pattern['top_ten_gods']}",
             pattern["note"],
+        ]),
+        _section("大运流年", [
+            luck["summary"],
+            *[
+                (
+                    f"{cycle['summary']}约{cycle['calendar_start_year']}-{cycle['calendar_end_year']}年。"
+                    f"{'当前所处大运。' if luck.get('current_cycle') and cycle['index'] == luck['current_cycle']['index'] else ''}"
+                )
+                for cycle in luck.get("cycles", [])[:8]
+            ],
+            current_year["summary"],
+        ]),
+        _section("临界时辰对照", [
+            hour_candidates["summary"],
+            *[
+                (
+                    f"{candidate['summary']}"
+                    f"{'（当前采用）' if candidate['selected'] else ''}"
+                )
+                for candidate in hour_candidates["candidates"]
+            ],
         ]),
         _section("关系双向性", result["relationship_notes"]),
         _section("边界", [

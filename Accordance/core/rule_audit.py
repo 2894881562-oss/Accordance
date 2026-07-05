@@ -329,9 +329,15 @@ def audit_bazi_rules():
             issues.append(_issue("error", "八字", f"{god} 十神分组非法", group))
 
     try:
-        result = analyze_bazi_birth("1990-01-01", 8, 30)
+        result = analyze_bazi_birth("1990-01-01", 8, 30, "男")
         if len(result.get("pillars", [])) != 4 or len(result.get("bazi", "").split()) != 4:
             issues.append(_issue("error", "八字", "八字样例未生成四柱", str(result.get("bazi"))))
+        if len(result.get("luck_cycles", {}).get("cycles", [])) < 8:
+            issues.append(_issue("error", "八字", "八字样例未生成完整大运列表"))
+        if not result.get("current_year", {}).get("ganzhi"):
+            issues.append(_issue("error", "八字", "八字样例未生成当前流年"))
+        if len(result.get("hour_candidates", {}).get("candidates", [])) != 3:
+            issues.append(_issue("error", "八字", "八字样例未生成三组临界时辰候选"))
     except Exception as exc:
         issues.append(_issue("error", "八字", "八字样例分析失败", str(exc)))
 

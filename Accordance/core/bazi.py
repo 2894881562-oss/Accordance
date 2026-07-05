@@ -34,6 +34,37 @@ from core.qi_context import (
 
 PILLAR_NAMES = ["年柱", "月柱", "日柱", "时柱"]
 ELEMENTS = ["木", "火", "土", "金", "水"]
+SHICHEN_BRANCHES = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"]
+SHICHEN_RANGES = {
+    1: "23:00-00:59",
+    2: "01:00-02:59",
+    3: "03:00-04:59",
+    4: "05:00-06:59",
+    5: "07:00-08:59",
+    6: "09:00-10:59",
+    7: "11:00-12:59",
+    8: "13:00-14:59",
+    9: "15:00-16:59",
+    10: "17:00-18:59",
+    11: "19:00-20:59",
+    12: "21:00-22:59",
+}
+
+# 节气月分界近似日期，与 qi_context.get_yueling_by_solar 保持同一套工程近似。
+JIE_BOUNDARIES = [
+    (1, 6, "小寒", "丑"),
+    (2, 4, "立春", "寅"),
+    (3, 6, "惊蛰", "卯"),
+    (4, 5, "清明", "辰"),
+    (5, 6, "立夏", "巳"),
+    (6, 6, "芒种", "午"),
+    (7, 7, "小暑", "未"),
+    (8, 7, "立秋", "申"),
+    (9, 8, "白露", "酉"),
+    (10, 8, "寒露", "戌"),
+    (11, 7, "立冬", "亥"),
+    (12, 7, "大雪", "子"),
+]
 
 
 def _source_element(target_element):
@@ -48,6 +79,28 @@ def _ke_source_element(target_element):
         if target == target_element:
             return source
     return "土"
+
+
+def _shift_ganzhi(ganzhi, offset):
+    gan = ganzhi[0]
+    zhi = ganzhi[1]
+    return f"{GAN_ORDER[(GAN_ORDER.index(gan) + offset) % 10]}{SHICHEN_BRANCHES[(SHICHEN_BRANCHES.index(zhi) + offset) % 12]}"
+
+
+def _normalize_gender(gender):
+    text = (gender or "").strip()
+    if text.startswith("男"):
+        return "男"
+    if text.startswith("女"):
+        return "女"
+    return ""
+
+
+def _solar_age_years(birth, current):
+    years = current.year - birth.year
+    if (current.month, current.day, current.hour, current.minute) < (birth.month, birth.day, birth.hour, birth.minute):
+        years -= 1
+    return max(0, years)
 
 
 def calculate_month_ganzhi(solar):
@@ -334,16 +387,209 @@ def _build_relationship_notes(groups):
     return notes
 
 
-def _build_plain_conclusion(day_strength, pattern):
+def _nearest_jie_boundary(solar, forward=True):
+    candidates = []
+    for year in (solar.year - 1, solar.year, solar.year + 1):
+        for month, day, name, branch in JIE_BOUNDARIES:
+            candidates.append({
+                "datetime": datetime.datetime(year, month, day),
+                "name": name,
+                "branch": branch,
+            })
+    candidates.sort(key=lambda item: item["datetime"])
+
+    if forward:
+        for item in candidates:
+            if item["datetime"] > solar:
+                return item
+        return candidates[-1]
+
+    previous = candidates[0]
+    for item in candidates:
+        if item["datetime"] <= solar:
+            previous = item
+        else:
+            break
+    return previous
+
+
+def _build_luck_direction(year_gan, gender):
+    normalized = _normalize_gender(gender)
+    if not normalized:
+        return {
+            "gender": "未指定",
+            "direction": "未定",
+            "step": 0,
+            "reason": "未指定性别，暂不判定大运顺逆；输入男/女后可按阳男阴女顺、阴男阳女逆推大运。",
+        }
+
+    year_is_yang = GAN_YINYANG.get(year_gan) == "阳"
+    forward = (normalized == "男" and year_is_yang) or (normalized == "女" and not year_is_yang)
+    return {
+        "gender": normalized,
+        "direction": "顺行" if forward else "逆行",
+        "step": 1 if forward else -1,
+        "reason": (
+            f"年干{year_gan}属{'阳' if year_is_yang else '阴'}，"
+            f"{normalized}命按{'阳男阴女顺' if forward else '阴男阳女逆'}取{('顺行' if forward else '逆行')}。"
+        ),
+    }
+
+
+def _build_luck_cycles(solar, pillars, day_gan, gender, current=None, limit=8):
+    year_gan = pillars[0]["gan"]
+    month_ganzhi = pillars[1]["ganzhi"]
+    direction = _build_luck_direction(year_gan, gender)
+    step = direction["step"]
+    if step == 0:
+        return {
+            "direction": direction,
+            "start_age": None,
+            "start_boundary": "",
+            "cycles": [],
+            "current_cycle": None,
+            "summary": direction["reason"],
+        }
+
+    boundary = _nearest_jie_boundary(solar, forward=step > 0)
+    delta_days = abs((boundary["datetime"] - solar).total_seconds()) / 86400
+    start_age = round(delta_days / 3, 1)
+    current_dt = current or datetime.datetime.now()
+    current_age = _solar_age_years(solar, current_dt)
+    cycles = []
+    current_cycle = None
+
+    for index in range(limit):
+        offset = step * (index + 1)
+        ganzhi = _shift_ganzhi(month_ganzhi, offset)
+        age_start = round(start_age + index * 10, 1)
+        age_end = round(age_start + 10, 1)
+        gan_god = get_ten_god(day_gan, ganzhi[0])
+        hidden = DIZHI_HIDDEN_STEMS.get(ganzhi[1], [])
+        branch_god = get_ten_god(day_gan, hidden[0][0]) if hidden else "未知"
+        cycle = {
+            "index": index + 1,
+            "ganzhi": ganzhi,
+            "age_start": age_start,
+            "age_end": age_end,
+            "calendar_start_year": int(solar.year + age_start),
+            "calendar_end_year": int(solar.year + age_end),
+            "gan_ten_god": gan_god,
+            "branch_main_ten_god": branch_god,
+            "summary": f"{age_start}-{age_end}岁：{ganzhi}大运，天干{gan_god}，地支主气{branch_god}。",
+        }
+        if age_start <= current_age < age_end:
+            current_cycle = cycle
+        cycles.append(cycle)
+
+    return {
+        "direction": direction,
+        "start_age": start_age,
+        "start_boundary": f"{boundary['name']}({boundary['datetime'].strftime('%Y-%m-%d')})",
+        "cycles": cycles,
+        "current_cycle": current_cycle,
+        "summary": (
+            f"{direction['reason']} 起运按出生至{boundary['name']}约{delta_days:.1f}天折算，"
+            f"约{start_age}岁起运。"
+        ),
+    }
+
+
+def _build_current_year_analysis(solar, day_gan, current=None):
+    current_dt = current or datetime.datetime.now()
+    year_ganzhi = get_year_ganzhi_by_date(current_dt)
+    hidden = DIZHI_HIDDEN_STEMS.get(year_ganzhi[1], [])
+    hidden_text = "、".join(f"{stem}{get_ten_god(day_gan, stem)}" for stem, _ in hidden)
+    gan_god = get_ten_god(day_gan, year_ganzhi[0])
+    main_branch_god = get_ten_god(day_gan, hidden[0][0]) if hidden else "未知"
+    age = _solar_age_years(solar, current_dt)
+    return {
+        "year": current_dt.year,
+        "age": age,
+        "ganzhi": year_ganzhi,
+        "gan_ten_god": gan_god,
+        "branch_main_ten_god": main_branch_god,
+        "hidden_ten_gods": hidden_text,
+        "summary": (
+            f"{current_dt.year}年流年{year_ganzhi}，天干为{gan_god}，"
+            f"地支主气为{main_branch_god}；当前约{age}岁。"
+        ),
+    }
+
+
+def _shichen_range(num):
+    return SHICHEN_RANGES.get(num, "")
+
+
+def _build_hour_candidate(day_gan, shichen_num, label, selected=False):
+    ganzhi = get_shichen_ganzhi(day_gan, shichen_num)
+    ten_god = get_ten_god(day_gan, ganzhi[0])
+    return {
+        "label": label,
+        "shichen_num": shichen_num,
+        "range": _shichen_range(shichen_num),
+        "ganzhi": ganzhi,
+        "ten_god": ten_god,
+        "trait": TEN_GOD_TRAITS.get(ten_god, ""),
+        "selected": selected,
+        "summary": f"{label}{_shichen_range(shichen_num)}：{ganzhi}时，时干{ten_god}，{TEN_GOD_TRAITS.get(ten_god, '')}",
+    }
+
+
+def _current_shichen_window(solar, shichen_num):
+    start_hour = (2 * (shichen_num - 1) - 1) % 24
+    start = solar.replace(hour=start_hour, minute=0, second=0, microsecond=0)
+    if shichen_num == 1 and solar.hour < 1:
+        start -= datetime.timedelta(days=1)
+    if start > solar:
+        start -= datetime.timedelta(days=1)
+    end = start + datetime.timedelta(hours=2)
+    return start, end
+
+
+def _build_hour_candidates(solar, day_gan):
+    shichen_num = get_shichen_by_hour(solar.hour)
+    previous_num = 12 if shichen_num == 1 else shichen_num - 1
+    next_num = 1 if shichen_num == 12 else shichen_num + 1
+    start, end = _current_shichen_window(solar, shichen_num)
+    distance = min(
+        abs((solar - start).total_seconds()) / 60,
+        abs((end - solar).total_seconds()) / 60,
+    )
+    candidates = [
+        _build_hour_candidate(day_gan, previous_num, "前一时辰"),
+        _build_hour_candidate(day_gan, shichen_num, "当前采用", selected=True),
+        _build_hour_candidate(day_gan, next_num, "后一时辰"),
+    ]
+    return {
+        "current_shichen": SHICHEN_BRANCHES[shichen_num - 1],
+        "distance_to_boundary_minutes": round(distance, 1),
+        "is_near_boundary": distance <= 20,
+        "candidates": candidates,
+        "summary": (
+            f"当前按{SHICHEN_BRANCHES[shichen_num - 1]}时({_shichen_range(shichen_num)})取时柱。"
+            f"距最近时辰边界约{distance:.1f}分钟；"
+            f"{'接近边界，可重点对照前后时干气质。' if distance <= 20 else '不接近边界，时辰争议相对较小。'}"
+        ),
+    }
+
+
+def _build_plain_conclusion(day_strength, pattern, luck_cycles=None, current_year=None):
+    timing = ""
+    if luck_cycles and luck_cycles.get("current_cycle"):
+        timing += f"当前大运为{luck_cycles['current_cycle']['ganzhi']}。"
+    if current_year:
+        timing += f"当前流年为{current_year['ganzhi']}。"
     return (
         f"日主为{day_strength['day_gan']}{day_strength['day_element']}，"
         f"按当前简化评分属{day_strength['level']}。"
         f"格局倾向为{pattern['pattern']}：{pattern['strategy']}"
+        f"{timing}"
         "此结果适合做自我观察和关系结构整理，不替代现实选择。"
     )
 
 
-def analyze_bazi_birth(birth_date, birth_hour, birth_minute=0, gender: Optional[str] = ""):
+def analyze_bazi_birth(birth_date, birth_hour, birth_minute=0, gender: Optional[str] = "", current=None):
     """按公历出生日期时间生成八字结构分析。"""
     solar = parse_birth_datetime(birth_date, birth_hour, birth_minute)
     raw_pillars = build_four_pillars(solar)
@@ -357,6 +603,9 @@ def analyze_bazi_birth(birth_date, birth_hour, birth_minute=0, gender: Optional[
     stages = _build_stage_analysis(pillars)
     inner_outer = _build_inner_outer_analysis(pillars)
     relationship_notes = _build_relationship_notes(ten_god_counts["groups"])
+    luck_cycles = _build_luck_cycles(solar, pillars, day_gan, gender, current=current)
+    current_year = _build_current_year_analysis(solar, day_gan, current=current)
+    hour_candidates = _build_hour_candidates(solar, day_gan)
 
     return {
         "birth": {
@@ -373,11 +622,14 @@ def analyze_bazi_birth(birth_date, birth_hour, birth_minute=0, gender: Optional[
         "stage_analysis": stages,
         "inner_outer": inner_outer,
         "pattern_analysis": pattern,
+        "luck_cycles": luck_cycles,
+        "current_year": current_year,
+        "hour_candidates": hour_candidates,
         "relationship_notes": relationship_notes,
-        "plain_conclusion": _build_plain_conclusion(day_strength, pattern),
+        "plain_conclusion": _build_plain_conclusion(day_strength, pattern, luck_cycles, current_year),
         "boundary_note": (
             "本功能按公历生日、近似节气分界排四柱；年柱以2月4日近似立春，"
-            "月柱按节气月建近似，未精确到节气时分，也未细分晚子时换日流派。"
+            "月柱按节气月建近似，大运起运按近似节气折算，未精确到节气时分，也未细分晚子时换日流派。"
         ),
     }
 
@@ -413,6 +665,22 @@ def format_bazi_report(result: Dict[str, Any]):
     lines.append("【格局倾向】")
     pattern = result["pattern_analysis"]
     lines.append(f"{pattern['pattern']}：{pattern['strategy']}{pattern['note']}")
+    lines.append("")
+    lines.append("【大运流年】")
+    luck = result["luck_cycles"]
+    lines.append(luck["summary"])
+    for cycle in luck.get("cycles", [])[:8]:
+        current_mark = " ← 当前" if luck.get("current_cycle") and cycle["index"] == luck["current_cycle"]["index"] else ""
+        lines.append(f"{cycle['summary']}约{cycle['calendar_start_year']}-{cycle['calendar_end_year']}年。{current_mark}")
+    current_year = result["current_year"]
+    lines.append(current_year["summary"])
+    lines.append("")
+    lines.append("【临界时辰对照】")
+    hour_info = result["hour_candidates"]
+    lines.append(hour_info["summary"])
+    for candidate in hour_info["candidates"]:
+        marker = "（当前采用）" if candidate["selected"] else ""
+        lines.append(f"{candidate['summary']}{marker}")
     lines.append("")
     lines.append("【关系双向性】")
     lines.extend(result["relationship_notes"])
