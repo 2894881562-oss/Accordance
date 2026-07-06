@@ -19,7 +19,10 @@ from config.qimen_data import (
     OUTER_PALACE_KEYS,
     QIMEN_PALACES,
     QIMEN_SCENARIO_RULES,
+    QIMEN_STEM_MEANING,
     QIMEN_STEM_ORDER,
+    SIX_JIA_DUN,
+    SIX_YI_TO_HIDDEN_JIA,
     SIX_YI,
     THREE_QI,
 )
@@ -410,6 +413,29 @@ def audit_qimen_rules():
     if len(set(QIMEN_STEM_ORDER)) != 9 or set(QIMEN_STEM_ORDER) != set(THREE_QI + SIX_YI):
         issues.append(_issue("error", "奇门", "三奇六仪顺序未覆盖 9 个天干", str(QIMEN_STEM_ORDER)))
 
+    expected_xunshou = {"甲子", "甲戌", "甲申", "甲午", "甲辰", "甲寅"}
+    if set(SIX_JIA_DUN) != expected_xunshou:
+        issues.append(_issue(
+            "error",
+            "奇门",
+            "六甲遁仪表未覆盖六个旬首",
+            f"missing={sorted(expected_xunshou - set(SIX_JIA_DUN))} extra={sorted(set(SIX_JIA_DUN) - expected_xunshou)}",
+        ))
+    if set(SIX_YI_TO_HIDDEN_JIA) != set(SIX_YI):
+        issues.append(_issue("error", "奇门", "六仪反查藏甲未覆盖六仪", str(SIX_YI_TO_HIDDEN_JIA)))
+    for xunshou, data in SIX_JIA_DUN.items():
+        instrument = data.get("instrument")
+        if instrument not in SIX_YI:
+            issues.append(_issue("error", "奇门", f"{xunshou}遁入未知六仪", str(instrument)))
+        if SIX_YI_TO_HIDDEN_JIA.get(instrument) != xunshou:
+            issues.append(_issue("error", "奇门", f"{xunshou}六仪反查不一致", str(instrument)))
+        stem_data = QIMEN_STEM_MEANING.get(instrument, {})
+        if stem_data.get("hidden_jia") != xunshou:
+            issues.append(_issue("error", "奇门", f"{instrument}的 hidden_jia 与六甲遁仪表不一致", str(stem_data)))
+    for stem in THREE_QI:
+        if QIMEN_STEM_MEANING.get(stem, {}).get("hidden_jia"):
+            issues.append(_issue("error", "奇门", f"{stem}为三奇，不应藏甲", str(QIMEN_STEM_MEANING.get(stem))))
+
     for key, rule in QIMEN_SCENARIO_RULES.items():
         for field in ("name", "prefer_doors", "avoid_doors", "prefer_stars", "avoid_stars", "prefer_gods", "avoid_gods", "action"):
             if field not in rule:
@@ -438,6 +464,13 @@ def audit_qimen_rules():
             issues.append(_issue("error", "奇门", "样例谈判场景识别错误", str(result.get("scenario"))))
         if "风后奇门" not in result.get("fenghou_boundary", ""):
             issues.append(_issue("error", "奇门", "样例结果缺少风后奇门边界声明"))
+        dunjia = result.get("dunjia_profile", {})
+        if not dunjia.get("xunshou") or not dunjia.get("commander_palace"):
+            issues.append(_issue("error", "奇门", "样例结果缺少遁甲旬首或藏甲宫", str(dunjia)))
+        if not dunjia.get("geng_palace") or len(dunjia.get("three_qi_palaces", [])) != 3:
+            issues.append(_issue("error", "奇门", "样例结果缺少庚方或三奇护局", str(dunjia)))
+        if not any("遁甲" in line for line in result.get("operation_logic", [])):
+            issues.append(_issue("error", "奇门", "样例结果缺少遁甲运筹逻辑"))
     except Exception as exc:
         issues.append(_issue("error", "奇门", "样例起局失败", str(exc)))
 

@@ -14,7 +14,8 @@ def run_qimen_analysis(prefilled_topic=""):
     _sep("═")
     print("  奇门运筹分析")
     _sep("═")
-    print("本功能按当前时辰生成简化九宫盘，只作方位、时机、格局运筹参考。")
+    print("本功能按当前时辰生成简化九宫盘，并标出旬首、藏甲宫、庚方与三奇护局。")
+    print("结果只作方位、时机、格局与遁甲护核的运筹参考。")
     print("不实现动漫设定中的“风后奇门”拨盘改局能力。")
 
     topic = prefilled_topic or input("所谋之事（如谈判、竞争、出行、项目推进）：").strip()

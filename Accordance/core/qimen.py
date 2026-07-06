@@ -22,6 +22,8 @@ from config.qimen_data import (
     QIMEN_SCENARIO_RULES,
     QIMEN_STEM_MEANING,
     QIMEN_STEM_ORDER,
+    SIX_JIA_DUN,
+    THREE_QI,
     TRADITIONAL_QIMEN_BOUNDARY,
 )
 from config.wuxing_rules import DIZHI_ORDER, WUXING_KE, WUXING_SHENG
@@ -90,6 +92,16 @@ def _ju_number(solar, day_index, shichen_num):
     if _dun_type(solar) == "阴遁":
         return 10 - base
     return base
+
+
+def _build_dunjia_xun(ganzhi):
+    """按时干支定位当前六甲旬首和甲所遁之六仪。"""
+    if ganzhi not in JIAZI_TABLE:
+        rule = SIX_JIA_DUN["甲子"]
+        return {"xunshou": "甲子", **rule}
+    xun_start = JIAZI_TABLE[(JIAZI_TABLE.index(ganzhi) // 10) * 10]
+    rule = SIX_JIA_DUN.get(xun_start, SIX_JIA_DUN["甲子"])
+    return {"xunshou": xun_start, **rule}
 
 
 def _infer_scenario(topic="", mode=""):
@@ -201,6 +213,61 @@ def _action_tip(palace, door_name, star_name, god_name, score, scenario, is_curr
     return tip
 
 
+def _apply_dunjia_weights(board, dunjia):
+    """把遁甲核心角色写入九宫盘，并轻量修正方位评分。"""
+    commander_stem = dunjia["instrument"]
+    for item in board:
+        stem_name = item["stem"]["name"]
+        roles = []
+        notes = []
+        modifier = 0.0
+
+        if stem_name == commander_stem:
+            roles.append("甲遁主帅")
+            notes.append(dunjia["role"])
+            modifier += 0.6
+            if item["palace"]["key"] != "center":
+                door_name = item["door"]["name"]
+                god_name = item["god"]["name"]
+                if door_name in ("开", "生", "休", "杜"):
+                    modifier += 0.5
+                    notes.append(f"{door_name}门可护核心，不宜过早摊牌。")
+                if door_name in ("死", "惊", "伤"):
+                    modifier -= 0.8
+                    notes.append(f"{door_name}门压主帅，核心目标宜藏不宜攻。")
+                if god_name in ("值符", "六合", "太阴", "九地"):
+                    modifier += 0.5
+                    notes.append(f"{god_name}能护甲，利于暗中蓄势。")
+                if god_name in ("白虎", "玄武", "螣蛇"):
+                    modifier -= 0.5
+                    notes.append(f"{god_name}使藏甲多疑险，需控损与核实信息。")
+                if item["is_empty"]:
+                    modifier -= 0.6
+                    notes.append("藏甲宫逢空亡，主线不宜落空口承诺。")
+
+        if stem_name == "庚":
+            roles.append("庚为阻力")
+            if commander_stem == "庚":
+                modifier -= 0.4
+                notes.append("本旬甲申遁庚，主帅伏于阻力之仪，尤其要避开正面硬撞。")
+            else:
+                modifier -= 0.8
+                notes.append("庚为甲之冲克压力，此方不宜暴露底牌。")
+
+        if stem_name in THREE_QI:
+            roles.append(f"{stem_name}奇护局")
+            modifier += 0.4
+            notes.append(f"{stem_name}奇可作外层助力，适合替主线做铺垫。")
+
+        item["dunjia_roles"] = roles
+        item["dunjia_notes"] = notes
+        item["dunjia_modifier"] = round(modifier, 2)
+        if modifier:
+            item["score"] = round(item["score"] + modifier, 2)
+            if item["palace"]["key"] != "center":
+                item["level"] = _score_level(item["score"])
+
+
 def _build_time_context(solar):
     day_ganzhi = get_accurate_day_ganzhi(solar)
     day_index = JIAZI_TABLE.index(day_ganzhi) if day_ganzhi in JIAZI_TABLE else 0
@@ -222,6 +289,7 @@ def _build_time_context(solar):
         "xunkong": xunkong,
         "dun_type": dun_type,
         "ju_number": ju_number,
+        "dunjia": _build_dunjia_xun(shichen_ganzhi),
     }
 
 
@@ -301,6 +369,7 @@ def _build_board(time_context, scenario, direction=""):
         })
         outer_index += 1
 
+    _apply_dunjia_weights(board, time_context["dunjia"])
     return board
 
 
@@ -310,7 +379,58 @@ def _candidate_palaces(board):
     return ranked[:3], sorted(outer, key=lambda item: item["score"])[:3]
 
 
-def _plain_conclusion(topic, scenario, best_palaces, avoid_palaces):
+def _build_dunjia_profile(board, time_context):
+    """整理当前局的遁甲核心信息。"""
+    dunjia = time_context["dunjia"]
+    commander_stem = dunjia["instrument"]
+    commander_palace = next((item for item in board if item["stem"]["name"] == commander_stem), None)
+    geng_palace = next((item for item in board if item["stem"]["name"] == "庚"), None)
+    three_qi_palaces = [item for item in board if item["stem"]["name"] in THREE_QI]
+
+    commander_score = commander_palace["score"] if commander_palace else 0
+    if commander_score >= 3:
+        protection_level = "护甲有力"
+        core_advice = "核心目标可暗中承接，但外层动作仍宜用门星神较顺的方位铺路。"
+    elif commander_score >= 0:
+        protection_level = "藏甲可守"
+        core_advice = "主线可以保留，但不宜急于摊牌；先以三奇或吉门方位试探。"
+    else:
+        protection_level = "主帅受压"
+        core_advice = "核心目标暂宜隐忍，先避庚方与凶门，改用外围助力化解压力。"
+
+    if commander_stem == "庚":
+        pressure_note = "本旬为甲申遁庚，主帅与阻力同仪，越要重视保密、证据和避锋。"
+    elif geng_palace:
+        pressure_note = (
+            f"庚在{geng_palace['palace']['direction']}方{geng_palace['palace']['name']}，"
+            "此方代表克甲压力，关键底牌不宜从此处暴露。"
+        )
+    else:
+        pressure_note = "本盘未定位到庚宫，按一般避锋原则处理。"
+
+    guard_text = "、".join(
+        f"{item['stem']['name']}奇在{item['palace']['direction']}方"
+        for item in sorted(three_qi_palaces, key=lambda palace: palace["score"], reverse=True)
+    )
+
+    return {
+        "xun_name": dunjia["xun_name"],
+        "xunshou": dunjia["xunshou"],
+        "instrument": commander_stem,
+        "label": dunjia["label"],
+        "role": dunjia["role"],
+        "strategy": dunjia["strategy"],
+        "commander_palace": commander_palace,
+        "geng_palace": geng_palace,
+        "three_qi_palaces": three_qi_palaces,
+        "protection_level": protection_level,
+        "core_advice": core_advice,
+        "pressure_note": pressure_note,
+        "guard_text": guard_text,
+    }
+
+
+def _plain_conclusion(topic, scenario, best_palaces, avoid_palaces, dunjia_profile=None):
     best = best_palaces[0]
     avoid = avoid_palaces[0]
     best_palace = best["palace"]
@@ -318,9 +438,18 @@ def _plain_conclusion(topic, scenario, best_palaces, avoid_palaces):
     avoid_palace = avoid["palace"]
     avoid_door = avoid["door"]["name"]
     subject = topic or scenario["name"]
+    dunjia_text = ""
+    if dunjia_profile:
+        commander = dunjia_profile.get("commander_palace") or {}
+        palace = commander.get("palace", {})
+        dunjia_text = (
+            f"本局{dunjia_profile['label']}，甲藏{palace.get('direction', '未知')}方，"
+            f"{dunjia_profile['protection_level']}。"
+        )
     return (
         f"{subject}宜优先取{best_palace['direction']}方（{best_palace['name']}，{best_door}门，"
         f"{best['level']}，评分{best['score']}），先按“{scenario['action']}”执行。"
+        f"{dunjia_text}"
         f"{avoid_palace['direction']}方见{avoid_door}门且评分偏低，关键动作不宜从此处硬推。"
         "此为传统奇门运筹参考，仍需以现实信息、时机成本和可执行条件校验。"
     )
@@ -337,6 +466,7 @@ def analyze_qimen(
     scenario = _infer_scenario(topic, mode)
     time_context = _build_time_context(solar)
     board = _build_board(time_context, scenario, direction)
+    dunjia_profile = _build_dunjia_profile(board, time_context)
     best_palaces, avoid_palaces = _candidate_palaces(board)
     current_direction = normalize_direction(direction)
     current_palace = next((item for item in board if item["is_current_direction"]), None)
@@ -356,15 +486,18 @@ def analyze_qimen(
             "empty_branches": time_context["xunkong"].get("empty_branches", []),
             "dun_type": time_context["dun_type"],
             "ju_number": time_context["ju_number"],
+            "dunjia": time_context["dunjia"],
         },
         "board": board,
         "best_palaces": best_palaces,
         "avoid_palaces": avoid_palaces,
         "current_palace": current_palace,
+        "dunjia_profile": dunjia_profile,
         "operation_logic": [
             "方位运筹：优先选择吉门、吉星、吉神相会且不落空亡的方位承接关键动作。",
             "时机运筹：同一问题换时辰会换盘，本结果只对应当前起局时点。",
             "格局运筹：八门看行动入口，九星看事态性质，八神看助力与风险，三奇六仪看资源与阻力。",
+            "遁甲护核：甲为主帅与核心目标，按当前旬首遁入六仪；先护主线，再借三奇与吉门做外层行动。",
         ],
         "traditional_boundary": TRADITIONAL_QIMEN_BOUNDARY,
         "fenghou_boundary": FENGHOU_QIMEN_BOUNDARY,
@@ -372,17 +505,21 @@ def analyze_qimen(
             "当前为工程化简化盘：用近似阴阳遁与局数生成九宫运筹盘，"
             "未实现完整拆补、置闰、超接、符使飞布和历法精算。"
         ),
-        "plain_conclusion": _plain_conclusion(topic, scenario, best_palaces, avoid_palaces),
+        "plain_conclusion": _plain_conclusion(topic, scenario, best_palaces, avoid_palaces, dunjia_profile),
     }
 
 
 def _format_palace_line(item):
     palace = item["palace"]
     stem = item["stem"]
+    roles = f"｜遁甲:{'、'.join(item.get('dunjia_roles', []))}" if item.get("dunjia_roles") else ""
+    modifier = item.get("dunjia_modifier", 0)
+    modifier_text = f"｜遁甲修正{modifier:+.1f}" if modifier else ""
     if palace["key"] == "center":
         return (
             f"{palace['name']}（{palace['direction']}，{palace['element']}）："
-            f"{item['star']['name']}，{stem['name']}{stem['type']}｜{item['level']}｜{item['action_tip']}"
+            f"{item['star']['name']}，{stem['name']}{stem['type']}｜{item['level']}"
+            f"{roles}{modifier_text}｜{item['action_tip']}"
         )
 
     door = item["door"]
@@ -393,7 +530,7 @@ def _format_palace_line(item):
     return (
         f"{palace['name']}（{palace['direction']}，{palace['element']}）："
         f"{door['name']}门/{star['name']}/{god['name']}/{stem['name']}{stem['type']}｜"
-        f"{item['level']}｜评分{item['score']}{empty}{reasons}"
+        f"{item['level']}｜评分{item['score']}{empty}{roles}{modifier_text}{reasons}"
     )
 
 
@@ -406,12 +543,36 @@ def format_qimen_report(result: Dict[str, Any]) -> str:
     lines.append(
         f"起局：{time_info['solar']}｜{time_info['day_ganzhi']}日｜"
         f"{time_info['shichen_ganzhi']}时｜{time_info['dun_type']}{time_info['ju_number']}局｜"
-        f"{time_info['xun_name']}空{''.join(time_info['empty_branches'])}"
+        f"{time_info['xun_name']}空{''.join(time_info['empty_branches'])}｜"
+        f"{time_info['dunjia']['label']}"
     )
     lines.append("")
     lines.append("【九宫简盘】")
     for item in result["board"]:
         lines.append(_format_palace_line(item))
+
+    dunjia = result["dunjia_profile"]
+    commander = dunjia.get("commander_palace")
+    geng = dunjia.get("geng_palace")
+    lines.append("")
+    lines.append("【遁甲核心】")
+    lines.append(f"{dunjia['label']}：{dunjia['role']}")
+    if commander:
+        palace = commander["palace"]
+        lines.append(
+            f"藏甲宫：{palace['direction']}方 {palace['name']}，"
+            f"{commander['level']}，评分{commander['score']}。{dunjia['protection_level']}。"
+        )
+        for note in commander.get("dunjia_notes", [])[:3]:
+            lines.append(f"  - {note}")
+    if geng:
+        palace = geng["palace"]
+        lines.append(
+            f"庚方压力：{palace['direction']}方 {palace['name']}，"
+            f"{geng['level']}，评分{geng['score']}。{dunjia['pressure_note']}"
+        )
+    lines.append(f"三奇护局：{dunjia['guard_text'] or '本盘三奇仅作背景，未形成明显外层助力。'}")
+    lines.append(f"主线策略：{dunjia['strategy']}{dunjia['core_advice']}")
 
     lines.append("")
     lines.append("【方位运筹】")
