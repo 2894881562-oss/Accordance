@@ -480,6 +480,12 @@ def audit_qimen_rules():
         geng_risk = result.get("geng_risk", {})
         if not geng_risk.get("level") or "summary" not in geng_risk:
             issues.append(_issue("error", "奇门", "样例结果缺少庚格风险分析", str(geng_risk)))
+        pattern = result.get("pattern_diagnostics", {})
+        required_pattern_counts = {"favorable_doors", "hard_doors", "empty_palaces", "fu_yin", "fan_yin", "aligned_good", "hard_combos"}
+        if not pattern.get("name") or not pattern.get("summary") or not pattern.get("boundary"):
+            issues.append(_issue("error", "奇门", "样例结果缺少格局诊断摘要或边界", str(pattern)))
+        if set(pattern.get("counts", {})) != required_pattern_counts:
+            issues.append(_issue("error", "奇门", "样例结果格局诊断计数字段不完整", str(pattern.get("counts"))))
         posture = result.get("tactical_posture", {})
         if not posture.get("name") or not posture.get("summary"):
             issues.append(_issue("error", "奇门", "样例结果缺少主客态势分析", str(posture)))

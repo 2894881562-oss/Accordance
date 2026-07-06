@@ -67,6 +67,25 @@ HOST_GUEST_SCENARIO_TACTICS = {
     "study": "主位用于表达、文书和输出，客压位识别噪音与卡点；转化位先整理资料和证明链。",
     "health": "主位用于休整与求助，客压位识别风险症状；所有行动以专业医疗意见为准。",
 }
+PALACE_OPPOSITES = {
+    "kan": "li",
+    "li": "kan",
+    "kun": "gen",
+    "gen": "kun",
+    "zhen": "dui",
+    "dui": "zhen",
+    "xun": "qian",
+    "qian": "xun",
+    "center": "center",
+}
+OUTER_NATIVE_DOORS = {
+    palace["key"]: door
+    for palace, door in zip([item for item in QIMEN_PALACES if item["key"] != "center"], EIGHT_DOOR_ORDER)
+}
+OUTER_NATIVE_STARS = {
+    palace["key"]: star
+    for palace, star in zip([item for item in QIMEN_PALACES if item["key"] != "center"], NINE_STAR_ORDER)
+}
 SCENARIO_ALIASES = {
     "谈判": "negotiation",
     "协商": "negotiation",
@@ -404,6 +423,107 @@ def _candidate_palaces(board):
     outer = [item for item in board if item["palace"]["key"] != "center"]
     ranked = sorted(outer, key=lambda item: item["score"], reverse=True)
     return ranked[:3], sorted(outer, key=lambda item: item["score"])[:3]
+
+
+def _build_pattern_diagnostics(board, best_palaces, avoid_palaces, geng_risk):
+    """诊断整盘推进度：伏吟、反吟、空亡、吉凶门和门星神一致性。"""
+    outer = [item for item in board if item["palace"]["key"] != "center"]
+    fu_yin = []
+    fan_yin = []
+    aligned_good = []
+    hard_combos = []
+    empty_palaces = []
+    favorable_doors = []
+    hard_doors = []
+
+    for item in outer:
+        palace = item["palace"]
+        palace_key = palace["key"]
+        door = item["door"]
+        star = item["star"]
+        god = item["god"]
+        direction = palace["direction"]
+        palace_label = f"{direction}方{palace['name']}"
+        native_door = OUTER_NATIVE_DOORS.get(palace_key, "")
+        native_star = OUTER_NATIVE_STARS.get(palace_key, "")
+        opposite_key = PALACE_OPPOSITES.get(palace_key, "")
+        opposite_door = OUTER_NATIVE_DOORS.get(opposite_key, "")
+        opposite_star = OUTER_NATIVE_STARS.get(opposite_key, "")
+
+        if item.get("is_empty"):
+            empty_palaces.append(palace_label)
+        if door["name"] in FAVORABLE_DOORS:
+            favorable_doors.append(f"{palace_label}{door['name']}门")
+        if door["name"] in HARD_DOORS:
+            hard_doors.append(f"{palace_label}{door['name']}门")
+
+        if door["name"] == native_door:
+            fu_yin.append(f"{palace_label}{door['name']}门归本宫")
+        if star["name"] == native_star:
+            fu_yin.append(f"{palace_label}{star['name']}星归本宫")
+        if door["name"] == opposite_door:
+            fan_yin.append(f"{palace_label}{door['name']}门落对宫象")
+        if star["name"] == opposite_star:
+            fan_yin.append(f"{palace_label}{star['name']}星落对宫象")
+
+        door_score = door.get("score", 0)
+        star_score = star.get("score", 0)
+        god_score = god.get("score", 0)
+        if door_score > 0 and star_score > 0 and god_score > 0:
+            aligned_good.append(f"{palace_label}{door['name']}门/{star['name']}/{god['name']}")
+        if door["name"] in HARD_DOORS and (god["name"] in RISK_GODS or star_score < 0):
+            hard_combos.append(f"{palace_label}{door['name']}门/{star['name']}/{god['name']}")
+
+    fuyin_count = len(fu_yin)
+    fanyin_count = len(fan_yin)
+    empty_count = len(empty_palaces)
+    good_count = len(aligned_good)
+    hard_combo_count = len(hard_combos)
+    risk_level = geng_risk.get("level", "")
+
+    if empty_count >= 3 or hard_combo_count >= 3 or risk_level == "高风险":
+        name = "先控险"
+        advice = "先查证、降成本、留退出条件，不宜把关键动作压在单次推进上。"
+    elif fuyin_count >= 5:
+        name = "僵持守成"
+        advice = "盘面归本偏多，适合守主线、修流程、等外部条件松动，不宜强行破局。"
+    elif fanyin_count >= 5:
+        name = "动荡易变"
+        advice = "反复和变数偏多，行动要拆小步、留备选路线，避免一次性定死。"
+    elif good_count >= 3 and best_palaces[0]["score"] >= 5:
+        name = "顺势推进"
+        advice = "可让主位承接关键动作，但仍要按时机窗口和现实条件分层推进。"
+    else:
+        name = "小步校验"
+        advice = "盘面有可用点也有阻力，先用低成本动作验证，再决定是否加码。"
+
+    summary = (
+        f"格局诊断：{name}。吉门{len(favorable_doors)}处、凶门{len(hard_doors)}处、"
+        f"空亡{empty_count}处、伏吟迹象{fuyin_count}条、反吟迹象{fanyin_count}条、"
+        f"门星神同向助力{good_count}处。{advice}"
+    )
+    return {
+        "name": name,
+        "summary": summary,
+        "counts": {
+            "favorable_doors": len(favorable_doors),
+            "hard_doors": len(hard_doors),
+            "empty_palaces": empty_count,
+            "fu_yin": fuyin_count,
+            "fan_yin": fanyin_count,
+            "aligned_good": good_count,
+            "hard_combos": hard_combo_count,
+        },
+        "favorable_doors": favorable_doors,
+        "hard_doors": hard_doors,
+        "empty_palaces": empty_palaces,
+        "fu_yin": fu_yin,
+        "fan_yin": fan_yin,
+        "aligned_good": aligned_good,
+        "hard_combos": hard_combos,
+        "advice": advice,
+        "boundary": "伏吟、反吟为本工程按门星原宫/对宫做的近似诊断，用于盘面体检，不替代完整奇门排盘判格。",
+    }
 
 
 def _build_dunjia_profile(board, time_context):
@@ -1065,6 +1185,7 @@ def analyze_qimen(
     zhifu_zhishi = _build_zhifu_zhishi_profile(dunjia_profile)
     three_qi_analysis = _build_three_qi_analysis(board)
     geng_risk = _build_geng_risk(board, dunjia_profile)
+    pattern_diagnostics = _build_pattern_diagnostics(board, best_palaces, avoid_palaces, geng_risk)
     tactical_posture = _build_tactical_posture(
         best_palaces,
         current_palace,
@@ -1118,6 +1239,7 @@ def analyze_qimen(
         "zhifu_zhishi": zhifu_zhishi,
         "three_qi_analysis": three_qi_analysis,
         "geng_risk": geng_risk,
+        "pattern_diagnostics": pattern_diagnostics,
         "tactical_posture": tactical_posture,
         "host_guest_matrix": host_guest_matrix,
         "action_plan": action_plan,
@@ -1125,6 +1247,7 @@ def analyze_qimen(
             "方位运筹：优先选择吉门、吉星、吉神相会且不落空亡的方位承接关键动作。",
             "时机运筹：同一问题换时辰会换盘，可横向比较当前、下一、再下一时辰的承载力。",
             "格局运筹：八门看行动入口，九星看事态性质，八神看助力与风险，三奇六仪看资源与阻力。",
+            "格局诊断：伏吟偏守、反吟偏变、空亡偏虚，需先看整盘推进度再定行动强度。",
             "遁甲护核：甲为主帅与核心目标，按当前旬首遁入六仪；先护主线，再借三奇与吉门做外层行动。",
             "主客分工：主位承接关键动作，客压位识别阻力，转化位铺垫资源，禁区只做止损复核。",
         ],
@@ -1144,6 +1267,9 @@ def analyze_qimen(
             action_plan,
         ),
     }
+    result["plain_conclusion"] = (
+        f"{result['plain_conclusion']} 格局诊断：{pattern_diagnostics['name']}，{pattern_diagnostics['advice']}"
+    )
     if include_timing:
         timing_windows = _build_timing_windows(topic, direction, mode, solar, result)
         result["timing_windows"] = timing_windows
@@ -1194,6 +1320,22 @@ def format_qimen_report(result: Dict[str, Any]) -> str:
     lines.append("【九宫简盘】")
     for item in result["board"]:
         lines.append(_format_palace_line(item))
+
+    pattern = result["pattern_diagnostics"]
+    lines.append("")
+    lines.append("【格局诊断】")
+    lines.append(pattern["summary"])
+    if pattern["aligned_good"]:
+        lines.append(f"同向助力：{'；'.join(pattern['aligned_good'][:3])}")
+    if pattern["hard_combos"]:
+        lines.append(f"高压组合：{'；'.join(pattern['hard_combos'][:3])}")
+    if pattern["fu_yin"]:
+        lines.append(f"伏吟迹象：{'；'.join(pattern['fu_yin'][:3])}")
+    if pattern["fan_yin"]:
+        lines.append(f"反吟迹象：{'；'.join(pattern['fan_yin'][:3])}")
+    if pattern["empty_palaces"]:
+        lines.append(f"空亡落点：{'；'.join(pattern['empty_palaces'])}")
+    lines.append(pattern["boundary"])
 
     dunjia = result["dunjia_profile"]
     commander = dunjia.get("commander_palace")
