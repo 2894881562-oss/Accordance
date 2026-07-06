@@ -67,6 +67,53 @@ HOST_GUEST_SCENARIO_TACTICS = {
     "study": "主位用于表达、文书和输出，客压位识别噪音与卡点；转化位先整理资料和证明链。",
     "health": "主位用于休整与求助，客压位识别风险症状；所有行动以专业医疗意见为准。",
 }
+COMMON_EXECUTION_CHECKS = [
+    "目标、底线、期限和可接受损失已经写清楚。",
+    "人、钱、时间、资料、权限和退出条件均已确认。",
+    "关键判断有现实证据支撑，不只依赖盘面倾向。",
+]
+SCENARIO_EXECUTION_GATES = {
+    "general": {
+        "verify": ["确认关键资源可调度。", "确认对方或环境的真实反馈。"],
+        "stop": ["信息明显不足且成本不可逆。"],
+        "fallback": "降级为信息收集、沟通铺垫或小范围试点。",
+    },
+    "negotiation": {
+        "verify": ["确认对方有决策权限。", "确认己方底线、让步区间和替代方案。", "确认合同、证据和口头承诺能落到文本。"],
+        "stop": ["对方拒绝明确权限或关键条款。", "己方被迫在禁区方位摊牌或让步。"],
+        "fallback": "先转为资料交换、议题拆分或约下一轮，不急于签定论。",
+    },
+    "competition": {
+        "verify": ["确认规则、裁判标准和对手优势。", "确认资源消耗可承受。", "确认胜负条件不是单点押注。"],
+        "stop": ["规则不清或对手诱导硬冲。", "成本超过可承受损失。"],
+        "fallback": "改为试探、侦察、分段突破或保存实力。",
+    },
+    "wealth": {
+        "verify": ["确认现金流、合同主体和付款路径。", "确认收益、风险和退出价格。", "确认对方信用与交付能力。"],
+        "stop": ["收益说法无法核验。", "资金去向、合同主体或回款路径不清。"],
+        "fallback": "先做小额验证、分期履约或补充担保。",
+    },
+    "travel": {
+        "verify": ["确认路线、时间缓冲和天气交通。", "确认联系人、地址和备选路线。", "确认必要证件与费用。"],
+        "stop": ["路线或关键联系人不明确。", "延误会造成不可承受损失。"],
+        "fallback": "改路线、改时间、先线上确认或推迟出发。",
+    },
+    "career": {
+        "verify": ["确认授权链、汇报对象和成果标准。", "确认资源、团队和时间窗口。", "确认承诺能被记录和复盘。"],
+        "stop": ["责任不清却要求承担结果。", "资源不到位但要求公开承诺。"],
+        "fallback": "先做阶段汇报、争取授权或缩小交付范围。",
+    },
+    "study": {
+        "verify": ["确认资料来源可靠。", "确认提交格式、评分标准和截止时间。", "确认输出能被检查和迭代。"],
+        "stop": ["资料互相矛盾且无法核实。", "时间不足以完成最低质量线。"],
+        "fallback": "先完成提纲、证据链和最小可交付版本。",
+    },
+    "health": {
+        "verify": ["确认医生、检查结果和用药建议。", "确认症状变化和禁忌事项。", "确认陪护、交通和应急方案。"],
+        "stop": ["出现急症或症状加重。", "盘面建议与专业医疗意见冲突。"],
+        "fallback": "优先就医、复诊或寻求专业第二意见。",
+    },
+}
 PALACE_OPPOSITES = {
     "kan": "li",
     "li": "kan",
@@ -1019,6 +1066,103 @@ def _build_action_plan(
     }
 
 
+def _role_by_name(host_guest_matrix, role_name):
+    return next((item for item in host_guest_matrix.get("roles", []) if item.get("role") == role_name), None)
+
+
+def _build_execution_guardrails(
+    scenario,
+    best_palaces,
+    avoid_palaces,
+    current_palace,
+    pattern_diagnostics,
+    geng_risk,
+    host_guest_matrix,
+    action_plan,
+):
+    """把盘面建议转成现实行动前的推进/停止闸门。"""
+    scenario_gate = SCENARIO_EXECUTION_GATES.get(scenario["key"], SCENARIO_EXECUTION_GATES["general"])
+    go_signal = action_plan.get("go_signal", "")
+    pattern_name = pattern_diagnostics.get("name", "")
+    risk_level = geng_risk.get("level", "")
+    best = best_palaces[0]
+    avoid = avoid_palaces[0]
+    main_role = _role_by_name(host_guest_matrix, "主位承接")
+    transform_role = _role_by_name(host_guest_matrix, "转化铺垫")
+    stop_role = _role_by_name(host_guest_matrix, "禁区止损")
+
+    if go_signal == "暂缓强攻" or risk_level == "高风险":
+        level = "暂缓"
+        mode = "只做准备与控险"
+    elif pattern_name in {"先控险", "动荡易变"} or risk_level == "需避锋":
+        level = "试点"
+        mode = "低成本验证"
+    elif go_signal == "可执行" and pattern_name == "顺势推进":
+        level = "可执行"
+        mode = "按主位分层推进"
+    elif go_signal in {"可执行", "小步推进"}:
+        level = "小步推进"
+        mode = "先小步再加码"
+    else:
+        level = "先试探"
+        mode = "信息收集优先"
+
+    must_verify = list(COMMON_EXECUTION_CHECKS)
+    must_verify.extend(scenario_gate["verify"])
+    if current_palace is None:
+        must_verify.append("未输入当前方位，执行前要补充实际位置或把当前位视为准备位。")
+    elif current_palace["score"] < 1:
+        must_verify.append("当前方位承载不足，关键动作不要直接从当前位置发起。")
+    if best.get("is_empty"):
+        must_verify.append(f"推荐主位{best['palace']['direction']}方逢空亡，须确认资源、承诺和人员不会落空。")
+    if risk_level in {"高风险", "需避锋"}:
+        must_verify.append("庚格压力未化解前，底牌、签约、强攻和公开承诺都要后置。")
+
+    go_conditions = [
+        f"主位{best['palace']['direction']}方{best['palace']['name']}能够实际承接关键动作。",
+        f"行动信号为{go_signal}，并且现实条件满足必查项。",
+        "禁区和庚方不承担摊牌、签约、强攻或高成本投入。",
+    ]
+    if main_role:
+        go_conditions.append(main_role["action"])
+    if level in {"试点", "小步推进", "先试探"}:
+        go_conditions.append("先做可回撤的小动作，观察反馈同向后再加码。")
+
+    stop_conditions = list(scenario_gate["stop"])
+    stop_conditions.extend([
+        f"被迫从{avoid['palace']['direction']}方{avoid['palace']['name']}等低分位推进关键动作。",
+        "证据、权限、成本或退出条件任一项无法核验。",
+    ])
+    if stop_role:
+        stop_conditions.append(stop_role["action"])
+    if pattern_diagnostics.get("counts", {}).get("hard_combos", 0) >= 3:
+        stop_conditions.append("高压组合偏多时，若现实反馈继续恶化，应立即止损复盘。")
+
+    fallback_steps = [
+        scenario_gate["fallback"],
+        "退回转化铺垫位，先做沟通、文书、展示、暗助或资源对接。",
+        "改用下一时辰重新评估，或把动作降级为信息收集。",
+    ]
+    if transform_role:
+        fallback_steps.insert(1, f"优先借{transform_role['direction']}方{transform_role['palace']}做转化：{transform_role['action']}")
+
+    summary = (
+        f"执行闸门：{level}（{mode}）。"
+        f"只有必查项成立、主位可用且禁区不承接关键动作时，才按行动方案推进；"
+        f"任一停止条件触发则转入降级路径。"
+    )
+    return {
+        "level": level,
+        "mode": mode,
+        "summary": summary,
+        "must_verify": must_verify,
+        "go_conditions": go_conditions,
+        "stop_conditions": stop_conditions,
+        "fallback_steps": fallback_steps,
+        "boundary": "执行闸门是现实风险控制清单，不是保证结果的承诺；重大事项仍以事实、合同、专业意见和个人判断为准。",
+    }
+
+
 def _shichen_window_start(solar, shichen_num=None):
     """返回当前时辰窗口的起点，用于横向比较后续时辰。"""
     shichen_num = shichen_num or get_shichen_by_hour(solar.hour)
@@ -1213,6 +1357,16 @@ def analyze_qimen(
         geng_risk,
         tactical_posture,
     )
+    execution_guardrails = _build_execution_guardrails(
+        scenario,
+        best_palaces,
+        avoid_palaces,
+        current_palace,
+        pattern_diagnostics,
+        geng_risk,
+        host_guest_matrix,
+        action_plan,
+    )
 
     result = {
         "topic": (topic or "").strip() or scenario["name"],
@@ -1243,6 +1397,7 @@ def analyze_qimen(
         "tactical_posture": tactical_posture,
         "host_guest_matrix": host_guest_matrix,
         "action_plan": action_plan,
+        "execution_guardrails": execution_guardrails,
         "operation_logic": [
             "方位运筹：优先选择吉门、吉星、吉神相会且不落空亡的方位承接关键动作。",
             "时机运筹：同一问题换时辰会换盘，可横向比较当前、下一、再下一时辰的承载力。",
@@ -1250,6 +1405,7 @@ def analyze_qimen(
             "格局诊断：伏吟偏守、反吟偏变、空亡偏虚，需先看整盘推进度再定行动强度。",
             "遁甲护核：甲为主帅与核心目标，按当前旬首遁入六仪；先护主线，再借三奇与吉门做外层行动。",
             "主客分工：主位承接关键动作，客压位识别阻力，转化位铺垫资源，禁区只做止损复核。",
+            "执行闸门：盘面建议必须经过现实必查项、停止条件和降级路径校验后才可落地。",
         ],
         "traditional_boundary": TRADITIONAL_QIMEN_BOUNDARY,
         "fenghou_boundary": FENGHOU_QIMEN_BOUNDARY,
@@ -1269,6 +1425,7 @@ def analyze_qimen(
     }
     result["plain_conclusion"] = (
         f"{result['plain_conclusion']} 格局诊断：{pattern_diagnostics['name']}，{pattern_diagnostics['advice']}"
+        f"执行闸门：{execution_guardrails['level']}，{execution_guardrails['mode']}。"
     )
     if include_timing:
         timing_windows = _build_timing_windows(topic, direction, mode, solar, result)
@@ -1410,6 +1567,24 @@ def format_qimen_report(result: Dict[str, Any]) -> str:
         location_text = f"｜{location}" if location else ""
         lines.append(f"{index}. {phase['name']}{location_text}：{phase['action']}")
         lines.append(f"   依据：{phase['basis']}")
+
+    guardrails = result["execution_guardrails"]
+    lines.append("")
+    lines.append("【执行闸门】")
+    lines.append(guardrails["summary"])
+    lines.append("必查项：")
+    for item in guardrails["must_verify"]:
+        lines.append(f"  - {item}")
+    lines.append("推进条件：")
+    for item in guardrails["go_conditions"]:
+        lines.append(f"  - {item}")
+    lines.append("停止条件：")
+    for item in guardrails["stop_conditions"]:
+        lines.append(f"  - {item}")
+    lines.append("降级路径：")
+    for item in guardrails["fallback_steps"]:
+        lines.append(f"  - {item}")
+    lines.append(guardrails["boundary"])
 
     timing_windows = result.get("timing_windows", {})
     if timing_windows.get("items"):

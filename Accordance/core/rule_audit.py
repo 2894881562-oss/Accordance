@@ -499,6 +499,12 @@ def audit_qimen_rules():
         action_plan = result.get("action_plan", {})
         if not action_plan.get("go_signal") or len(action_plan.get("phases", [])) < 4:
             issues.append(_issue("error", "奇门", "样例结果缺少可执行行动方案", str(action_plan)))
+        guardrails = result.get("execution_guardrails", {})
+        if not guardrails.get("level") or not guardrails.get("mode") or not guardrails.get("summary"):
+            issues.append(_issue("error", "奇门", "样例结果缺少执行闸门摘要", str(guardrails)))
+        for field in ("must_verify", "go_conditions", "stop_conditions", "fallback_steps"):
+            if len(guardrails.get(field, [])) < 2:
+                issues.append(_issue("error", "奇门", f"样例结果执行闸门字段不足：{field}", str(guardrails.get(field))))
         timing_windows = result.get("timing_windows", {})
         if len(timing_windows.get("items", [])) != 3 or not timing_windows.get("best"):
             issues.append(_issue("error", "奇门", "样例结果缺少三时辰时机窗口", str(timing_windows)))
