@@ -1275,6 +1275,103 @@ def _build_timing_windows(topic, direction, mode, solar, current_result):
     }
 
 
+def _build_integrated_decision(
+    best_palaces,
+    current_palace,
+    pattern_diagnostics,
+    geng_risk,
+    host_guest_matrix,
+    action_plan,
+    execution_guardrails,
+    timing_windows=None,
+):
+    """统一裁决多层信号，避免报告出现可执行与控险并列却无优先级。"""
+    best = best_palaces[0]
+    main_role = _role_by_name(host_guest_matrix, "主位承接")
+    transform_role = _role_by_name(host_guest_matrix, "转化铺垫")
+    stop_role = _role_by_name(host_guest_matrix, "禁区止损")
+    go_signal = action_plan.get("go_signal", "")
+    guard_level = execution_guardrails.get("level", "")
+    pattern_name = pattern_diagnostics.get("name", "")
+    risk_level = geng_risk.get("level", "")
+    timing_best = (timing_windows or {}).get("best")
+    current_timing = next(
+        (item for item in (timing_windows or {}).get("items", []) if item.get("label") == "当前时辰"),
+        None,
+    )
+    conflicts = []
+
+    if go_signal == "可执行" and guard_level not in {"可执行", "小步推进"}:
+        conflicts.append(f"行动方案给出{go_signal}，但执行闸门降级为{guard_level}。")
+    if pattern_name in {"先控险", "动荡易变"}:
+        conflicts.append(f"格局诊断为{pattern_name}，行动强度必须下调。")
+    if best.get("is_empty"):
+        conflicts.append(f"主位{best['palace']['direction']}方得分高但逢空亡，资源与承诺要先核实。")
+    if risk_level in {"高风险", "需避锋"}:
+        conflicts.append(f"庚格为{risk_level}，底牌、签约和强攻应后置。")
+    if current_palace and current_palace["score"] < 1:
+        conflicts.append(f"当前方位评分{current_palace['score']}，不宜替代主位。")
+    if timing_best and current_timing and timing_best.get("label") != "当前时辰":
+        delta = round(timing_best["window_score"] - current_timing["window_score"], 2)
+        if delta >= 1:
+            conflicts.append(f"最佳时机在{timing_best['label']}，比当前窗口高{delta}分。")
+
+    if guard_level == "暂缓" or risk_level == "高风险":
+        final_signal = "暂缓执行"
+        priority = "风险优先"
+        final_action = "只做准备、查证、降成本和退出预案，不做摊牌或高成本动作。"
+    elif timing_best and current_timing and timing_best.get("label") != "当前时辰" and (
+        timing_best["window_score"] - current_timing["window_score"] >= 1
+    ):
+        final_signal = "等待窗口"
+        priority = "择时优先"
+        final_action = f"当前先铺垫，等{timing_best['label']}再把关键动作交给主位承接。"
+    elif guard_level == "试点" or pattern_name in {"先控险", "动荡易变"}:
+        final_signal = "低成本试点"
+        priority = "控险优先"
+        final_action = "先做可回撤的小动作，验证权限、资源、证据和对方反馈后再加码。"
+    elif guard_level == "可执行" and go_signal == "可执行" and pattern_name == "顺势推进":
+        final_signal = "分层推进"
+        priority = "顺势推进"
+        final_action = "可按主位承接关键动作，但核心信息仍分层释放，避免一次性押注。"
+    else:
+        final_signal = "小步校验"
+        priority = "校验优先"
+        final_action = "按主位试推、转化位铺垫、禁区止损的顺序小步推进。"
+
+    primary_direction = f"{best['palace']['direction']}方{best['palace']['name']}"
+    support_direction = (
+        f"{transform_role['direction']}方{transform_role['palace']}"
+        if transform_role else ""
+    )
+    stop_direction = (
+        f"{stop_role['direction']}方{stop_role['palace']}"
+        if stop_role else ""
+    )
+    timing_text = (
+        f"{timing_best['label']}（{timing_best['solar']}，{timing_best['shichen_ganzhi']}时）"
+        if timing_best else "未展开时机窗口"
+    )
+    summary = (
+        f"综合裁决：{final_signal}。优先级为{priority}；"
+        f"主位取{primary_direction}，转化位取{support_direction or '无明确转化位'}，"
+        f"禁区避{stop_direction or '最低分位'}，时机参考{timing_text}。{final_action}"
+    )
+    return {
+        "final_signal": final_signal,
+        "priority": priority,
+        "final_action": final_action,
+        "primary_direction": primary_direction,
+        "support_direction": support_direction,
+        "stop_direction": stop_direction,
+        "timing": timing_text,
+        "conflicts": conflicts,
+        "summary": summary,
+        "main_role": main_role,
+        "boundary": "综合裁决只用于统一本报告内部信号；现实执行仍以执行闸门和事实校验为准。",
+    }
+
+
 def _plain_conclusion(
     topic,
     scenario,
@@ -1433,6 +1530,18 @@ def analyze_qimen(
         result["plain_conclusion"] = f"{result['plain_conclusion']} 时机参考：{timing_windows['summary']}"
     else:
         result["timing_windows"] = {"items": [], "ranked": [], "best": None, "summary": "", "boundary": ""}
+    integrated_decision = _build_integrated_decision(
+        best_palaces,
+        current_palace,
+        pattern_diagnostics,
+        geng_risk,
+        host_guest_matrix,
+        action_plan,
+        execution_guardrails,
+        result["timing_windows"],
+    )
+    result["integrated_decision"] = integrated_decision
+    result["plain_conclusion"] = f"{result['plain_conclusion']} {integrated_decision['summary']}"
     return result
 
 
@@ -1598,6 +1707,17 @@ def format_qimen_report(result: Dict[str, Any]) -> str:
                 f"取{item['best_direction']}方{item['best_door']}门｜态势{item['posture']}｜庚格{item['geng_level']}"
             )
         lines.append(timing_windows["boundary"])
+
+    decision = result["integrated_decision"]
+    lines.append("")
+    lines.append("【综合裁决】")
+    lines.append(decision["summary"])
+    if decision["conflicts"]:
+        lines.append("信号冲突：")
+        for item in decision["conflicts"]:
+            lines.append(f"  - {item}")
+    lines.append(f"最终动作：{decision['final_action']}")
+    lines.append(decision["boundary"])
 
     lines.append("")
     lines.append("【方位运筹】")

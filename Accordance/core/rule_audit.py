@@ -510,6 +510,11 @@ def audit_qimen_rules():
             issues.append(_issue("error", "奇门", "样例结果缺少三时辰时机窗口", str(timing_windows)))
         if not timing_windows.get("summary") or not timing_windows.get("ranked"):
             issues.append(_issue("error", "奇门", "样例结果缺少时机窗口摘要或排序", str(timing_windows)))
+        integrated = result.get("integrated_decision", {})
+        if not integrated.get("final_signal") or not integrated.get("priority") or not integrated.get("summary"):
+            issues.append(_issue("error", "奇门", "样例结果缺少综合裁决摘要", str(integrated)))
+        if not integrated.get("primary_direction") or "综合裁决" not in integrated.get("summary", ""):
+            issues.append(_issue("error", "奇门", "样例结果综合裁决缺少主位或摘要标识", str(integrated)))
     except Exception as exc:
         issues.append(_issue("error", "奇门", "样例起局失败", str(exc)))
 
