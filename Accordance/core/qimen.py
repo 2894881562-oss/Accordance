@@ -45,6 +45,18 @@ HARD_DOORS = {"伤", "惊", "死"}
 FAVORABLE_STARS = {"天心", "天辅", "天任", "天英", "天冲"}
 FAVORABLE_GODS = {"值符", "六合", "太阴", "九天", "九地"}
 RISK_GODS = {"白虎", "玄武", "螣蛇"}
+TIMING_SIGNAL_WEIGHT = {
+    "可执行": 2.0,
+    "小步推进": 1.0,
+    "先试探": 0.0,
+    "暂缓强攻": -2.0,
+}
+TIMING_RISK_WEIGHT = {
+    "压力有限": 0.8,
+    "可化解": 0.3,
+    "需避锋": -1.0,
+    "高风险": -2.0,
+}
 SCENARIO_ALIASES = {
     "谈判": "negotiation",
     "协商": "negotiation",
@@ -752,6 +764,118 @@ def _build_action_plan(
     }
 
 
+def _shichen_window_start(solar, shichen_num=None):
+    """返回当前时辰窗口的起点，用于横向比较后续时辰。"""
+    shichen_num = shichen_num or get_shichen_by_hour(solar.hour)
+    start_hour = (2 * (shichen_num - 1) - 1) % 24
+    start = solar.replace(hour=start_hour, minute=0, second=0, microsecond=0)
+    if shichen_num == 1 and solar.hour < 1:
+        start -= datetime.timedelta(days=1)
+    if start > solar:
+        start -= datetime.timedelta(days=1)
+    return start
+
+
+def _timing_candidate_datetimes(solar):
+    base = _shichen_window_start(solar)
+    return [
+        {"label": "当前时辰", "solar": solar},
+        {"label": "下一时辰", "solar": base + datetime.timedelta(hours=2)},
+        {"label": "再下一时辰", "solar": base + datetime.timedelta(hours=4)},
+    ]
+
+
+def _timing_level(score):
+    if score >= 7:
+        return "最佳窗口"
+    if score >= 5:
+        return "可用窗口"
+    if score >= 3:
+        return "试探窗口"
+    return "暂缓窗口"
+
+
+def _timing_window_item(label, result):
+    best = result["best_palaces"][0]
+    commander = result.get("dunjia_profile", {}).get("commander_palace")
+    action_plan = result.get("action_plan", {})
+    geng_risk = result.get("geng_risk", {})
+    posture = result.get("tactical_posture", {})
+    time_info = result["time_context"]
+    go_signal = action_plan.get("go_signal", "")
+    risk_level = geng_risk.get("level", "")
+    commander_score = commander["score"] if commander else 0.0
+    commander_modifier = max(-1.0, min(1.0, commander_score / 4))
+    window_score = (
+        best["score"]
+        + TIMING_SIGNAL_WEIGHT.get(go_signal, 0.0)
+        + TIMING_RISK_WEIGHT.get(risk_level, 0.0)
+        + commander_modifier
+    )
+    window_score = round(window_score, 2)
+    return {
+        "label": label,
+        "solar": time_info["solar"],
+        "shichen_ganzhi": time_info["shichen_ganzhi"],
+        "dun_type": time_info["dun_type"],
+        "ju_number": time_info["ju_number"],
+        "best_direction": best["palace"]["direction"],
+        "best_palace": best["palace"]["name"],
+        "best_door": best["door"]["name"],
+        "best_score": best["score"],
+        "commander_direction": commander["palace"]["direction"] if commander else "",
+        "commander_score": round(commander_score, 2),
+        "geng_level": risk_level,
+        "go_signal": go_signal,
+        "posture": posture.get("name", ""),
+        "window_score": window_score,
+        "level": _timing_level(window_score),
+    }
+
+
+def _build_timing_windows(topic, direction, mode, solar, current_result):
+    """比较当前、下一、再下一时辰，给出简化择时窗口。"""
+    items = []
+    for candidate in _timing_candidate_datetimes(solar):
+        if candidate["label"] == "当前时辰":
+            candidate_result = current_result
+        else:
+            candidate_result = analyze_qimen(
+                topic=topic,
+                direction=direction,
+                mode=mode,
+                current=candidate["solar"],
+                include_timing=False,
+            )
+        items.append(_timing_window_item(candidate["label"], candidate_result))
+
+    ranked = sorted(items, key=lambda item: item["window_score"], reverse=True)
+    best = ranked[0]
+    if best["label"] == "当前时辰":
+        summary = (
+            f"当前窗口评分最高，可按{best['go_signal']}处理；"
+            f"优先取{best['best_direction']}方{best['best_door']}门，仍需避开庚格风险。"
+        )
+    elif best["label"] == "下一时辰":
+        summary = (
+            f"更适合等到下一时辰（{best['solar']}，{best['shichen_ganzhi']}时）再承接关键动作；"
+            f"当前可先铺垫信息和资源。"
+        )
+    else:
+        summary = (
+            f"当前与下一时辰都不宜急推，较佳窗口在再下一时辰"
+            f"（{best['solar']}，{best['shichen_ganzhi']}时）；先做准备和风险隔离。"
+        )
+
+    return {
+        "items": items,
+        "ranked": ranked,
+        "best": best,
+        "summary": summary,
+        "boundary": "时机窗口为工程化简化比较，只比较相邻三个时辰盘，不替代完整奇门择时排盘。",
+    }
+
+
 def _plain_conclusion(
     topic,
     scenario,
@@ -792,6 +916,7 @@ def analyze_qimen(
     direction: str = "",
     mode: str = "",
     current: Optional[datetime.datetime] = None,
+    include_timing: bool = True,
 ) -> Dict[str, Any]:
     """生成传统奇门运筹分析结果。"""
     solar = current or datetime.datetime.now()
@@ -823,7 +948,7 @@ def analyze_qimen(
         tactical_posture,
     )
 
-    return {
+    result = {
         "topic": (topic or "").strip() or scenario["name"],
         "input_direction": direction or "",
         "current_direction": current_direction,
@@ -852,7 +977,7 @@ def analyze_qimen(
         "action_plan": action_plan,
         "operation_logic": [
             "方位运筹：优先选择吉门、吉星、吉神相会且不落空亡的方位承接关键动作。",
-            "时机运筹：同一问题换时辰会换盘，本结果只对应当前起局时点。",
+            "时机运筹：同一问题换时辰会换盘，可横向比较当前、下一、再下一时辰的承载力。",
             "格局运筹：八门看行动入口，九星看事态性质，八神看助力与风险，三奇六仪看资源与阻力。",
             "遁甲护核：甲为主帅与核心目标，按当前旬首遁入六仪；先护主线，再借三奇与吉门做外层行动。",
         ],
@@ -872,6 +997,13 @@ def analyze_qimen(
             action_plan,
         ),
     }
+    if include_timing:
+        timing_windows = _build_timing_windows(topic, direction, mode, solar, result)
+        result["timing_windows"] = timing_windows
+        result["plain_conclusion"] = f"{result['plain_conclusion']} 时机参考：{timing_windows['summary']}"
+    else:
+        result["timing_windows"] = {"items": [], "ranked": [], "best": None, "summary": "", "boundary": ""}
+    return result
 
 
 def _format_palace_line(item):
@@ -976,6 +1108,19 @@ def format_qimen_report(result: Dict[str, Any]) -> str:
         location_text = f"｜{location}" if location else ""
         lines.append(f"{index}. {phase['name']}{location_text}：{phase['action']}")
         lines.append(f"   依据：{phase['basis']}")
+
+    timing_windows = result.get("timing_windows", {})
+    if timing_windows.get("items"):
+        lines.append("")
+        lines.append("【时机窗口】")
+        lines.append(timing_windows["summary"])
+        for index, item in enumerate(timing_windows["ranked"], 1):
+            lines.append(
+                f"{index}. {item['label']}｜{item['solar']}｜{item['shichen_ganzhi']}时｜"
+                f"{item['level']}｜窗口评分{item['window_score']}｜行动{item['go_signal']}｜"
+                f"取{item['best_direction']}方{item['best_door']}门｜态势{item['posture']}｜庚格{item['geng_level']}"
+            )
+        lines.append(timing_windows["boundary"])
 
     lines.append("")
     lines.append("【方位运筹】")

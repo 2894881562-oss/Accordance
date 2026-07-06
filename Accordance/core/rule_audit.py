@@ -486,6 +486,11 @@ def audit_qimen_rules():
         action_plan = result.get("action_plan", {})
         if not action_plan.get("go_signal") or len(action_plan.get("phases", [])) < 4:
             issues.append(_issue("error", "奇门", "样例结果缺少可执行行动方案", str(action_plan)))
+        timing_windows = result.get("timing_windows", {})
+        if len(timing_windows.get("items", [])) != 3 or not timing_windows.get("best"):
+            issues.append(_issue("error", "奇门", "样例结果缺少三时辰时机窗口", str(timing_windows)))
+        if not timing_windows.get("summary") or not timing_windows.get("ranked"):
+            issues.append(_issue("error", "奇门", "样例结果缺少时机窗口摘要或排序", str(timing_windows)))
     except Exception as exc:
         issues.append(_issue("error", "奇门", "样例起局失败", str(exc)))
 
