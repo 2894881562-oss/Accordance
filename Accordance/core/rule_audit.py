@@ -471,6 +471,18 @@ def audit_qimen_rules():
             issues.append(_issue("error", "奇门", "样例结果缺少庚方或三奇护局", str(dunjia)))
         if not any("遁甲" in line for line in result.get("operation_logic", [])):
             issues.append(_issue("error", "奇门", "样例结果缺少遁甲运筹逻辑"))
+        zhifu = result.get("zhifu_zhishi", {})
+        if not zhifu.get("zhi_fu_star") or not zhifu.get("zhi_shi_door"):
+            issues.append(_issue("error", "奇门", "样例结果缺少值符值使参照", str(zhifu)))
+        three_qi = result.get("three_qi_analysis", {})
+        if len(three_qi.get("items", [])) != 3 or not three_qi.get("best"):
+            issues.append(_issue("error", "奇门", "样例结果缺少三奇助力分析", str(three_qi)))
+        geng_risk = result.get("geng_risk", {})
+        if not geng_risk.get("level") or "summary" not in geng_risk:
+            issues.append(_issue("error", "奇门", "样例结果缺少庚格风险分析", str(geng_risk)))
+        posture = result.get("tactical_posture", {})
+        if not posture.get("name") or not posture.get("summary"):
+            issues.append(_issue("error", "奇门", "样例结果缺少主客态势分析", str(posture)))
     except Exception as exc:
         issues.append(_issue("error", "奇门", "样例起局失败", str(exc)))
 

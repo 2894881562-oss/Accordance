@@ -40,6 +40,11 @@ from core.qi_context import (
 
 
 DIRECTION_NAMES = ["东北", "东南", "西北", "西南", "北", "南", "东", "西", "中"]
+FAVORABLE_DOORS = {"开", "生", "休", "景"}
+HARD_DOORS = {"伤", "惊", "死"}
+FAVORABLE_STARS = {"天心", "天辅", "天任", "天英", "天冲"}
+FAVORABLE_GODS = {"值符", "六合", "太阴", "九天", "九地"}
+RISK_GODS = {"白虎", "玄武", "螣蛇"}
 SCENARIO_ALIASES = {
     "谈判": "negotiation",
     "协商": "negotiation",
@@ -430,7 +435,221 @@ def _build_dunjia_profile(board, time_context):
     }
 
 
-def _plain_conclusion(topic, scenario, best_palaces, avoid_palaces, dunjia_profile=None):
+def _build_zhifu_zhishi_profile(dunjia_profile):
+    """以藏甲宫为参照，给出值符星和值使门的工程化提示。"""
+    commander = dunjia_profile.get("commander_palace")
+    if not commander:
+        return {
+            "zhi_fu_star": "",
+            "zhi_shi_door": "",
+            "summary": "未定位到藏甲宫，暂不推值符值使。",
+            "action_basis": "",
+            "boundary": "此处为工程化简化盘的值符值使参照，不替代专业奇门排盘。",
+        }
+
+    star = commander["star"]
+    door = commander.get("door")
+    palace = commander["palace"]
+    zhi_shi = door["name"] if door else "中宫无门"
+    door_text = door["strategy"] if door else "中宫只作统筹，关键动作仍需借外八宫承接。"
+    if commander["score"] >= 3:
+        command_level = "主令可用"
+    elif commander["score"] >= 0:
+        command_level = "主令可守"
+    else:
+        command_level = "主令受压"
+
+    return {
+        "zhi_fu_star": star["name"],
+        "zhi_shi_door": zhi_shi,
+        "palace_direction": palace["direction"],
+        "palace_name": palace["name"],
+        "command_level": command_level,
+        "summary": (
+            f"以藏甲宫为参照，值符星取{star['name']}，值使门取{zhi_shi}；"
+            f"落{palace['direction']}方{palace['name']}，判断为{command_level}。"
+        ),
+        "action_basis": f"星主{star['meaning']}门主{door_text}",
+        "boundary": "此处为工程化简化盘的值符值使参照，不替代专业奇门排盘。",
+    }
+
+
+def _evaluate_three_qi_palace(item):
+    """评估三奇所在宫能否作为外层助力。"""
+    palace = item["palace"]
+    stem_name = item["stem"]["name"]
+    score = item["score"]
+    factors = []
+
+    door = item.get("door")
+    star = item.get("star")
+    god = item.get("god")
+    if door:
+        if door["name"] in FAVORABLE_DOORS:
+            score += 0.7
+            factors.append(f"得{door['name']}门")
+        elif door["name"] in HARD_DOORS:
+            score -= 0.6
+            factors.append(f"{door['name']}门带压")
+    else:
+        factors.append("中宫统筹")
+
+    if star and star["name"] in FAVORABLE_STARS:
+        score += 0.5
+        factors.append(f"{star['name']}助势")
+    if god:
+        if god["name"] in FAVORABLE_GODS:
+            score += 0.6
+            factors.append(f"{god['name']}护局")
+        elif god["name"] in RISK_GODS:
+            score -= 0.5
+            factors.append(f"{god['name']}添险")
+    if item.get("is_empty"):
+        score -= 0.6
+        factors.append("逢空亡")
+
+    score = round(score, 2)
+    if score >= 5:
+        level = "得门得神"
+    elif score >= 3:
+        level = "可借力"
+    elif score >= 1:
+        level = "可铺垫"
+    else:
+        level = "助力有限"
+
+    role = {
+        "乙": "乙奇偏人和、文书、柔性沟通。",
+        "丙": "丙奇偏显化、声势、公开表达。",
+        "丁": "丁奇偏机巧、暗助、精细突破。",
+    }.get(stem_name, "")
+
+    return {
+        "stem": stem_name,
+        "palace_direction": palace["direction"],
+        "palace_name": palace["name"],
+        "score": score,
+        "level": level,
+        "role": role,
+        "factors": factors,
+        "summary": (
+            f"{stem_name}奇在{palace['direction']}方{palace['name']}，{level}，评分{score}。"
+            f"{role}{'依据：' + '、'.join(factors) if factors else ''}"
+        ),
+    }
+
+
+def _build_three_qi_analysis(board):
+    items = [
+        _evaluate_three_qi_palace(item)
+        for item in board
+        if item["stem"]["name"] in THREE_QI
+    ]
+    items.sort(key=lambda item: item["score"], reverse=True)
+    best = items[0] if items else None
+    if best:
+        summary = f"三奇以{best['stem']}奇最可借，位置在{best['palace_direction']}方，{best['level']}。"
+    else:
+        summary = "本盘未定位到三奇助力。"
+    return {"items": items, "best": best, "summary": summary}
+
+
+def _build_geng_risk(board, dunjia_profile):
+    geng = dunjia_profile.get("geng_palace")
+    commander = dunjia_profile.get("commander_palace")
+    risks = []
+    if not geng:
+        return {"level": "未定位", "score": 0, "items": [], "summary": "本盘未定位庚方，按一般避锋原则处理。"}
+
+    risk_score = 0
+    same_palace = commander and commander["palace"]["key"] == geng["palace"]["key"]
+    if same_palace:
+        risk_score += 3
+        risks.append("甲庚同宫或同仪：核心与阻力叠在一起，忌正面摊牌。")
+
+    door = geng.get("door")
+    god = geng.get("god")
+    if door and door["name"] in HARD_DOORS:
+        risk_score += 2
+        risks.append(f"庚临{door['name']}门：对抗、惊扰或损耗加重。")
+    elif door and door["name"] in FAVORABLE_DOORS:
+        risk_score += 1
+        risks.append(f"庚临{door['name']}门：阻力有可谈可转之处，但底牌仍要藏。")
+
+    if god and god["name"] in RISK_GODS:
+        risk_score += 2
+        risks.append(f"庚伴{god['name']}：防强硬、暗线、疑虑或信息污染。")
+    elif god and god["name"] in FAVORABLE_GODS:
+        risks.append(f"庚伴{god['name']}：可借规则、合作或暗助降压。")
+
+    if geng.get("is_empty"):
+        risk_score -= 1
+        risks.append("庚方逢空：压力未必坐实，但不可因空而轻敌。")
+
+    if risk_score >= 5:
+        level = "高风险"
+    elif risk_score >= 3:
+        level = "需避锋"
+    elif risk_score >= 1:
+        level = "可化解"
+    else:
+        level = "压力有限"
+
+    palace = geng["palace"]
+    return {
+        "level": level,
+        "score": risk_score,
+        "items": risks,
+        "summary": f"庚方在{palace['direction']}方{palace['name']}，判断为{level}。"
+    }
+
+
+def _build_tactical_posture(best_palaces, current_palace, dunjia_profile, three_qi_analysis, geng_risk):
+    best = best_palaces[0]
+    commander = dunjia_profile.get("commander_palace")
+    commander_score = commander["score"] if commander else 0
+    best_three_qi = three_qi_analysis.get("best")
+    geng_level = geng_risk.get("level", "")
+
+    if commander_score < 0 or geng_level in ("高风险", "需避锋"):
+        name = "护主避锋"
+        action = "先隐藏核心目标，避免正面硬撞；用三奇或吉门方位做外围铺垫。"
+    elif best["score"] >= 5 and commander_score >= 1:
+        name = "主动开局"
+        action = "可让推荐方位承担关键动作，但核心底牌仍分层释放。"
+    elif best_three_qi and best_three_qi["score"] >= 3:
+        name = "借奇铺路"
+        action = f"先借{best_three_qi['stem']}奇所在{best_three_qi['palace_direction']}方做沟通、展示或暗助。"
+    else:
+        name = "小步试探"
+        action = "先做低成本试探，等门星神和现实反馈同向后再加码。"
+
+    if current_palace:
+        if current_palace["palace"]["key"] == best["palace"]["key"]:
+            host_guest = "当前方位可作主方承接关键动作。"
+        elif current_palace["score"] < 0:
+            host_guest = "当前方位不宜做主方，关键动作宜转向推荐方位。"
+        else:
+            host_guest = "当前方位可作辅助位，主动作仍以推荐方位为准。"
+    else:
+        host_guest = "未输入当前方位，主客态势按推荐方位与藏甲宫判断。"
+
+    return {
+        "name": name,
+        "action": action,
+        "host_guest": host_guest,
+        "summary": f"态势：{name}。{action}{host_guest}",
+    }
+
+
+def _plain_conclusion(
+    topic,
+    scenario,
+    best_palaces,
+    avoid_palaces,
+    dunjia_profile=None,
+    tactical_posture=None,
+):
     best = best_palaces[0]
     avoid = avoid_palaces[0]
     best_palace = best["palace"]
@@ -450,6 +669,7 @@ def _plain_conclusion(topic, scenario, best_palaces, avoid_palaces, dunjia_profi
         f"{subject}宜优先取{best_palace['direction']}方（{best_palace['name']}，{best_door}门，"
         f"{best['level']}，评分{best['score']}），先按“{scenario['action']}”执行。"
         f"{dunjia_text}"
+        f"{'态势取' + tactical_posture['name'] + '。' if tactical_posture else ''}"
         f"{avoid_palace['direction']}方见{avoid_door}门且评分偏低，关键动作不宜从此处硬推。"
         "此为传统奇门运筹参考，仍需以现实信息、时机成本和可执行条件校验。"
     )
@@ -470,6 +690,16 @@ def analyze_qimen(
     best_palaces, avoid_palaces = _candidate_palaces(board)
     current_direction = normalize_direction(direction)
     current_palace = next((item for item in board if item["is_current_direction"]), None)
+    zhifu_zhishi = _build_zhifu_zhishi_profile(dunjia_profile)
+    three_qi_analysis = _build_three_qi_analysis(board)
+    geng_risk = _build_geng_risk(board, dunjia_profile)
+    tactical_posture = _build_tactical_posture(
+        best_palaces,
+        current_palace,
+        dunjia_profile,
+        three_qi_analysis,
+        geng_risk,
+    )
 
     return {
         "topic": (topic or "").strip() or scenario["name"],
@@ -493,6 +723,10 @@ def analyze_qimen(
         "avoid_palaces": avoid_palaces,
         "current_palace": current_palace,
         "dunjia_profile": dunjia_profile,
+        "zhifu_zhishi": zhifu_zhishi,
+        "three_qi_analysis": three_qi_analysis,
+        "geng_risk": geng_risk,
+        "tactical_posture": tactical_posture,
         "operation_logic": [
             "方位运筹：优先选择吉门、吉星、吉神相会且不落空亡的方位承接关键动作。",
             "时机运筹：同一问题换时辰会换盘，本结果只对应当前起局时点。",
@@ -505,7 +739,14 @@ def analyze_qimen(
             "当前为工程化简化盘：用近似阴阳遁与局数生成九宫运筹盘，"
             "未实现完整拆补、置闰、超接、符使飞布和历法精算。"
         ),
-        "plain_conclusion": _plain_conclusion(topic, scenario, best_palaces, avoid_palaces, dunjia_profile),
+        "plain_conclusion": _plain_conclusion(
+            topic,
+            scenario,
+            best_palaces,
+            avoid_palaces,
+            dunjia_profile,
+            tactical_posture,
+        ),
     }
 
 
@@ -573,6 +814,34 @@ def format_qimen_report(result: Dict[str, Any]) -> str:
         )
     lines.append(f"三奇护局：{dunjia['guard_text'] or '本盘三奇仅作背景，未形成明显外层助力。'}")
     lines.append(f"主线策略：{dunjia['strategy']}{dunjia['core_advice']}")
+
+    zhifu = result["zhifu_zhishi"]
+    lines.append("")
+    lines.append("【值符值使】")
+    lines.append(zhifu["summary"])
+    if zhifu.get("action_basis"):
+        lines.append(zhifu["action_basis"])
+    lines.append(zhifu["boundary"])
+
+    three_qi = result["three_qi_analysis"]
+    lines.append("")
+    lines.append("【三奇助力】")
+    lines.append(three_qi["summary"])
+    for item in three_qi["items"]:
+        factor_text = f"（{'、'.join(item['factors'])}）" if item["factors"] else ""
+        lines.append(f"{item['summary']}{factor_text}")
+
+    geng_risk = result["geng_risk"]
+    lines.append("")
+    lines.append("【庚格风险】")
+    lines.append(geng_risk["summary"])
+    for risk in geng_risk["items"]:
+        lines.append(f"  - {risk}")
+
+    posture = result["tactical_posture"]
+    lines.append("")
+    lines.append("【主客态势】")
+    lines.append(posture["summary"])
 
     lines.append("")
     lines.append("【方位运筹】")
