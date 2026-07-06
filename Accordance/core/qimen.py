@@ -642,6 +642,116 @@ def _build_tactical_posture(best_palaces, current_palace, dunjia_profile, three_
     }
 
 
+def _build_action_plan(
+    best_palaces,
+    avoid_palaces,
+    current_palace,
+    dunjia_profile,
+    zhifu_zhishi,
+    three_qi_analysis,
+    geng_risk,
+    tactical_posture,
+):
+    """把奇门判断压缩成可执行的分步运筹方案。"""
+    best = best_palaces[0]
+    second = best_palaces[1] if len(best_palaces) > 1 else best
+    avoid = avoid_palaces[0]
+    commander = dunjia_profile.get("commander_palace")
+    best_three_qi = three_qi_analysis.get("best")
+    best_score = best["score"]
+    commander_score = commander["score"] if commander else 0
+    risk_level = geng_risk.get("level", "")
+
+    if risk_level == "高风险" or (risk_level == "需避锋" and commander_score < 0):
+        go_signal = "暂缓强攻"
+        threshold = "庚方压力重或主帅受压，先守核心、降风险，不宜直接摊牌。"
+    elif best_score >= 5 and commander_score >= 0:
+        go_signal = "可执行"
+        threshold = "推荐方位承载力强，且藏甲不至失守，可分层推进关键动作。"
+    elif best_score >= 3:
+        go_signal = "小步推进"
+        threshold = "推荐方位可用，但仍需用低成本动作验证现实反馈。"
+    else:
+        go_signal = "先试探"
+        threshold = "全局承载不足，先做信息收集与外围铺垫，暂不加码。"
+
+    phases = []
+    if commander:
+        palace = commander["palace"]
+        phases.append({
+            "name": "护甲定底线",
+            "direction": palace["direction"],
+            "palace": palace["name"],
+            "action": (
+                f"核心目标先藏于{palace['direction']}方{palace['name']}之象，"
+                "只保留必要信息给关键人，不在压力位暴露底牌。"
+            ),
+            "basis": f"{dunjia_profile['label']}，{dunjia_profile['protection_level']}；{zhifu_zhishi['summary']}",
+        })
+
+    if best_three_qi:
+        phases.append({
+            "name": "借奇铺垫",
+            "direction": best_three_qi["palace_direction"],
+            "palace": best_three_qi["palace_name"],
+            "action": (
+                f"先借{best_three_qi['stem']}奇做外围动作：沟通、文书、展示、暗助或信息铺垫，"
+                "让主线在不暴露的情况下获得外部支撑。"
+            ),
+            "basis": best_three_qi["summary"],
+        })
+
+    phases.append({
+        "name": "取门执行",
+        "direction": best["palace"]["direction"],
+        "palace": best["palace"]["name"],
+        "action": (
+            f"关键动作优先取{best['palace']['direction']}方，按{best['door']['name']}门之象执行；"
+            f"若条件不足，则转用{second['palace']['direction']}方作备用承接。"
+        ),
+        "basis": f"{best['door']['name']}门、{best['star']['name']}、{best['god']['name']}，{best['level']}，评分{best['score']}。",
+    })
+
+    phases.append({
+        "name": "避庚控险",
+        "direction": geng_risk.get("summary", ""),
+        "palace": "",
+        "action": (
+            "庚方和最低分方位不承担摊牌、签约、强攻、公开承诺等关键动作；"
+            "只用于识别对手、压力源、硬约束和需要证据化处理的问题。"
+        ),
+        "basis": f"{geng_risk['summary']}最低分方位为{avoid['palace']['direction']}方{avoid['palace']['name']}，{avoid['level']}。",
+    })
+
+    if current_palace:
+        phases.append({
+            "name": "校准当前位",
+            "direction": current_palace["palace"]["direction"],
+            "palace": current_palace["palace"]["name"],
+            "action": (
+                "当前方位只按其评分承担相应角色；若与推荐方位不一致，"
+                "把当前位作为准备位或辅助位，不让它替代主攻方。"
+            ),
+            "basis": f"当前方位{current_palace['level']}，评分{current_palace['score']}。",
+        })
+
+    phases.append({
+        "name": "现实复核",
+        "direction": "",
+        "palace": "",
+        "action": "执行前核对人、钱、时间、证据、权限和退出条件；现实条件不满足时，宁可降级为试探动作。",
+        "basis": "奇门只给时空运筹参考，不替代事实、专业意见和个人判断。",
+    })
+
+    summary = f"行动信号：{go_signal}。{threshold}{tactical_posture['summary']}"
+    return {
+        "go_signal": go_signal,
+        "threshold": threshold,
+        "summary": summary,
+        "phases": phases,
+    }
+
+
 def _plain_conclusion(
     topic,
     scenario,
@@ -649,6 +759,7 @@ def _plain_conclusion(
     avoid_palaces,
     dunjia_profile=None,
     tactical_posture=None,
+    action_plan=None,
 ):
     best = best_palaces[0]
     avoid = avoid_palaces[0]
@@ -670,6 +781,7 @@ def _plain_conclusion(
         f"{best['level']}，评分{best['score']}），先按“{scenario['action']}”执行。"
         f"{dunjia_text}"
         f"{'态势取' + tactical_posture['name'] + '。' if tactical_posture else ''}"
+        f"{'行动信号为' + action_plan['go_signal'] + '。' if action_plan else ''}"
         f"{avoid_palace['direction']}方见{avoid_door}门且评分偏低，关键动作不宜从此处硬推。"
         "此为传统奇门运筹参考，仍需以现实信息、时机成本和可执行条件校验。"
     )
@@ -700,6 +812,16 @@ def analyze_qimen(
         three_qi_analysis,
         geng_risk,
     )
+    action_plan = _build_action_plan(
+        best_palaces,
+        avoid_palaces,
+        current_palace,
+        dunjia_profile,
+        zhifu_zhishi,
+        three_qi_analysis,
+        geng_risk,
+        tactical_posture,
+    )
 
     return {
         "topic": (topic or "").strip() or scenario["name"],
@@ -727,6 +849,7 @@ def analyze_qimen(
         "three_qi_analysis": three_qi_analysis,
         "geng_risk": geng_risk,
         "tactical_posture": tactical_posture,
+        "action_plan": action_plan,
         "operation_logic": [
             "方位运筹：优先选择吉门、吉星、吉神相会且不落空亡的方位承接关键动作。",
             "时机运筹：同一问题换时辰会换盘，本结果只对应当前起局时点。",
@@ -746,6 +869,7 @@ def analyze_qimen(
             avoid_palaces,
             dunjia_profile,
             tactical_posture,
+            action_plan,
         ),
     }
 
@@ -842,6 +966,16 @@ def format_qimen_report(result: Dict[str, Any]) -> str:
     lines.append("")
     lines.append("【主客态势】")
     lines.append(posture["summary"])
+
+    action_plan = result["action_plan"]
+    lines.append("")
+    lines.append("【行动方案】")
+    lines.append(action_plan["summary"])
+    for index, phase in enumerate(action_plan["phases"], 1):
+        location = f"{phase['direction']}方 {phase['palace']}".strip()
+        location_text = f"｜{location}" if location else ""
+        lines.append(f"{index}. {phase['name']}{location_text}：{phase['action']}")
+        lines.append(f"   依据：{phase['basis']}")
 
     lines.append("")
     lines.append("【方位运筹】")

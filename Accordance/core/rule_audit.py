@@ -483,6 +483,9 @@ def audit_qimen_rules():
         posture = result.get("tactical_posture", {})
         if not posture.get("name") or not posture.get("summary"):
             issues.append(_issue("error", "奇门", "样例结果缺少主客态势分析", str(posture)))
+        action_plan = result.get("action_plan", {})
+        if not action_plan.get("go_signal") or len(action_plan.get("phases", [])) < 4:
+            issues.append(_issue("error", "奇门", "样例结果缺少可执行行动方案", str(action_plan)))
     except Exception as exc:
         issues.append(_issue("error", "奇门", "样例起局失败", str(exc)))
 
