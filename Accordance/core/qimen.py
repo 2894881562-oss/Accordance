@@ -57,6 +57,16 @@ TIMING_RISK_WEIGHT = {
     "需避锋": -1.0,
     "高风险": -2.0,
 }
+HOST_GUEST_SCENARIO_TACTICS = {
+    "general": "主位承接关键动作，客压位只做风险识别；先用转化位铺垫，再决定是否加码。",
+    "negotiation": "主位打开议题和交换条件，客压位识别反对点；转化位先铺信任、证据和让步空间。",
+    "competition": "主位负责出招和展示优势，客压位侦测对手火力与硬约束；禁区避免情绪化硬撞。",
+    "wealth": "主位承接资源落地，客压位核查信用、合同和现金流压力；转化位先做小额验证。",
+    "travel": "主位取通达路线和拜访入口，客压位识别堵点、延误和信息不明；禁区不做赶路硬冲。",
+    "career": "主位承接汇报、授权和成果展示，客压位识别组织阻力；转化位先铺资源与盟友。",
+    "study": "主位用于表达、文书和输出，客压位识别噪音与卡点；转化位先整理资料和证明链。",
+    "health": "主位用于休整与求助，客压位识别风险症状；所有行动以专业医疗意见为准。",
+}
 SCENARIO_ALIASES = {
     "谈判": "negotiation",
     "协商": "negotiation",
@@ -654,6 +664,131 @@ def _build_tactical_posture(best_palaces, current_palace, dunjia_profile, three_
     }
 
 
+def _matrix_role(role, item, action, basis):
+    palace = item["palace"]
+    door = item.get("door") or {}
+    star = item.get("star") or {}
+    god = item.get("god") or {}
+    stem = item.get("stem") or {}
+    return {
+        "role": role,
+        "direction": palace["direction"],
+        "palace": palace["name"],
+        "palace_key": palace["key"],
+        "door": door.get("name", "无门"),
+        "star": star.get("name", ""),
+        "god": god.get("name", ""),
+        "stem": stem.get("name", ""),
+        "level": item.get("level", ""),
+        "score": item.get("score", 0),
+        "action": action,
+        "basis": basis,
+    }
+
+
+def _find_palace_item(board, direction="", palace_name=""):
+    for item in board:
+        palace = item["palace"]
+        if direction and palace.get("direction") != direction:
+            continue
+        if palace_name and palace.get("name") != palace_name:
+            continue
+        return item
+    return None
+
+
+def _build_host_guest_matrix(
+    board,
+    best_palaces,
+    avoid_palaces,
+    current_palace,
+    dunjia_profile,
+    three_qi_analysis,
+    geng_risk,
+    scenario,
+):
+    """把主客、攻守、转化与禁区压缩成可执行矩阵。"""
+    best = best_palaces[0]
+    second = best_palaces[1] if len(best_palaces) > 1 else best
+    avoid = avoid_palaces[0]
+    commander = dunjia_profile.get("commander_palace")
+    pressure = dunjia_profile.get("geng_palace") or avoid
+    best_three_qi = three_qi_analysis.get("best")
+    transform = None
+    if best_three_qi:
+        transform = _find_palace_item(
+            board,
+            direction=best_three_qi.get("palace_direction", ""),
+            palace_name=best_three_qi.get("palace_name", ""),
+        )
+    transform = transform or second
+
+    roles = [
+        _matrix_role(
+            "主位承接",
+            best,
+            "承担发起、呈现、签约、拜访或推进等关键动作；现实条件不足时，降级为小步推进。",
+            f"{best['door']['name']}门、{best['star']['name']}、{best['god']['name']}组合评分最高，{best['level']}。",
+        )
+    ]
+    if commander:
+        roles.append(_matrix_role(
+            "核心藏甲",
+            commander,
+            "承接核心目标、底牌、授权与不可轻易暴露的信息；宜暗中守住主线。",
+            f"{dunjia_profile['label']}，{dunjia_profile['protection_level']}。",
+        ))
+    roles.append(_matrix_role(
+        "客压识别",
+        pressure,
+        "只用于识别对手、阻力、硬约束、证据缺口和冲突源，不从此处主动摊牌。",
+        geng_risk.get("summary", dunjia_profile.get("pressure_note", "")),
+    ))
+    roles.append(_matrix_role(
+        "转化铺垫",
+        transform,
+        "用于沟通、文书、展示、暗助、资源对接或低成本验证，把压力转成可处理的信息。",
+        best_three_qi["summary"] if best_three_qi else f"次优方位{second['palace']['direction']}方可作备用承接。",
+    ))
+    roles.append(_matrix_role(
+        "禁区止损",
+        avoid,
+        "避免强攻、公开承诺、签约摊牌和高成本投入；只做止损、复核和退出预案。",
+        f"最低分方位为{avoid['palace']['direction']}方{avoid['palace']['name']}，{avoid['level']}，评分{avoid['score']}。",
+    ))
+
+    if current_palace:
+        if current_palace["palace"]["key"] == best["palace"]["key"]:
+            current_action = "当前位置与主位一致，可承接关键动作，但仍需按行动信号控制节奏。"
+        elif current_palace["palace"]["key"] in {pressure["palace"]["key"], avoid["palace"]["key"]}:
+            current_action = "当前位置落在压力或禁区，宜换位、换时或把动作降级为观察和准备。"
+        elif current_palace["score"] >= 1:
+            current_action = "当前位置可作辅助位，适合准备材料、铺垫沟通或承接次级动作。"
+        else:
+            current_action = "当前位置承载力不足，不宜替代主位执行关键动作。"
+        roles.append(_matrix_role(
+            "当前落点",
+            current_palace,
+            current_action,
+            f"输入方位为{current_palace['palace']['direction']}方，{current_palace['level']}，评分{current_palace['score']}。",
+        ))
+        current_note = current_action
+    else:
+        current_note = "未输入当前方位，先按主位、藏甲、客压和禁区分工执行。"
+
+    summary = (
+        f"主位取{best['palace']['direction']}方，客压看{pressure['palace']['direction']}方，"
+        f"转化借{transform['palace']['direction']}方，禁区避{avoid['palace']['direction']}方。"
+        f"{current_note}"
+    )
+    return {
+        "summary": summary,
+        "scenario_tactic": HOST_GUEST_SCENARIO_TACTICS.get(scenario["key"], scenario["action"]),
+        "roles": roles,
+        "boundary": "主客矩阵用于现实运筹分工，不代表对他人或事件的确定性控制。",
+    }
+
+
 def _build_action_plan(
     best_palaces,
     avoid_palaces,
@@ -937,6 +1072,16 @@ def analyze_qimen(
         three_qi_analysis,
         geng_risk,
     )
+    host_guest_matrix = _build_host_guest_matrix(
+        board,
+        best_palaces,
+        avoid_palaces,
+        current_palace,
+        dunjia_profile,
+        three_qi_analysis,
+        geng_risk,
+        scenario,
+    )
     action_plan = _build_action_plan(
         best_palaces,
         avoid_palaces,
@@ -974,12 +1119,14 @@ def analyze_qimen(
         "three_qi_analysis": three_qi_analysis,
         "geng_risk": geng_risk,
         "tactical_posture": tactical_posture,
+        "host_guest_matrix": host_guest_matrix,
         "action_plan": action_plan,
         "operation_logic": [
             "方位运筹：优先选择吉门、吉星、吉神相会且不落空亡的方位承接关键动作。",
             "时机运筹：同一问题换时辰会换盘，可横向比较当前、下一、再下一时辰的承载力。",
             "格局运筹：八门看行动入口，九星看事态性质，八神看助力与风险，三奇六仪看资源与阻力。",
             "遁甲护核：甲为主帅与核心目标，按当前旬首遁入六仪；先护主线，再借三奇与吉门做外层行动。",
+            "主客分工：主位承接关键动作，客压位识别阻力，转化位铺垫资源，禁区只做止损复核。",
         ],
         "traditional_boundary": TRADITIONAL_QIMEN_BOUNDARY,
         "fenghou_boundary": FENGHOU_QIMEN_BOUNDARY,
@@ -1098,6 +1245,19 @@ def format_qimen_report(result: Dict[str, Any]) -> str:
     lines.append("")
     lines.append("【主客态势】")
     lines.append(posture["summary"])
+    matrix = result["host_guest_matrix"]
+    lines.append(matrix["summary"])
+    lines.append(f"场景打法：{matrix['scenario_tactic']}")
+    for role in matrix["roles"]:
+        symbols = "/".join(
+            item for item in (role["door"], role["star"], role["god"], role["stem"]) if item
+        )
+        lines.append(
+            f"- {role['role']}｜{role['direction']}方 {role['palace']}｜{symbols}｜"
+            f"{role['level']}｜评分{role['score']}：{role['action']}"
+        )
+        lines.append(f"  依据：{role['basis']}")
+    lines.append(matrix["boundary"])
 
     action_plan = result["action_plan"]
     lines.append("")

@@ -483,6 +483,13 @@ def audit_qimen_rules():
         posture = result.get("tactical_posture", {})
         if not posture.get("name") or not posture.get("summary"):
             issues.append(_issue("error", "奇门", "样例结果缺少主客态势分析", str(posture)))
+        host_guest_matrix = result.get("host_guest_matrix", {})
+        role_names = {item.get("role") for item in host_guest_matrix.get("roles", [])}
+        required_roles = {"主位承接", "客压识别", "转化铺垫", "禁区止损"}
+        if not host_guest_matrix.get("summary") or not host_guest_matrix.get("scenario_tactic"):
+            issues.append(_issue("error", "奇门", "样例结果缺少主客攻守矩阵摘要或场景打法", str(host_guest_matrix)))
+        if not required_roles.issubset(role_names):
+            issues.append(_issue("error", "奇门", "样例结果主客攻守矩阵角色不完整", str(role_names)))
         action_plan = result.get("action_plan", {})
         if not action_plan.get("go_signal") or len(action_plan.get("phases", [])) < 4:
             issues.append(_issue("error", "奇门", "样例结果缺少可执行行动方案", str(action_plan)))
