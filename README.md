@@ -126,6 +126,22 @@ cd Accordance
 python main.py
 ```
 
+### CLI 测试历史
+
+命令行会默认把复问历史写入 `Accordance/.data/question_history.json`。功能测试时建议临时重定向或禁用历史，避免测试问题污染正式记录：
+
+```powershell
+# 重定向到测试历史文件
+$env:ACCORDANCE_HISTORY_FILE = "$PWD\.data\test_question_history.json"
+python main.py
+
+# 或完全禁用本次历史读写
+$env:ACCORDANCE_HISTORY_DISABLED = "1"
+python main.py
+```
+
+这些环境变量只影响当前终端进程；正式使用时新开终端或清空变量即可恢复默认历史。
+
 ## 手机网页运行
 
 本项目已提供移动端 Web 入口，核心规则仍由 Python 引擎计算，手机浏览器只负责输入与展示。
@@ -213,7 +229,7 @@ docker compose --env-file deploy/cloud/.env -f deploy/cloud/docker-compose.yml u
 7. 查看近期起卦记录
 8. 起卦法选择器
 9. 四柱八字基础分析（十神/强弱/阶段/格局倾向）
-10. 奇门运筹分析（方位/时机/格局）
+10. 奇门运筹分析（方位/时机/格局/裁决/置信度）
 11. 规则数据审计（纳甲/世应/八字/奇门/选择器）
 0. 退出系统
 ```

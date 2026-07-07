@@ -8,6 +8,16 @@
 python main.py
 ```
 
+测试功能时可临时重定向或禁用 CLI 历史，避免测试问题写入正式复问记录：
+
+```powershell
+$env:ACCORDANCE_HISTORY_FILE = "$PWD\.data\test_question_history.json"
+python main.py
+
+$env:ACCORDANCE_HISTORY_DISABLED = "1"
+python main.py
+```
+
 ## 移动端 Web
 
 当前阶段按本机/同一局域网使用。电脑终端关闭、电脑休眠、断网或切换网络后，手机端会停止访问。

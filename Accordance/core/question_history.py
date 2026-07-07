@@ -28,7 +28,27 @@ def _data_dir():
     return path
 
 
-HISTORY_FILE = os.path.join(_data_dir(), "question_history.json")
+def _truthy_env(name):
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _history_file():
+    """返回 CLI 历史文件路径；测试可用环境变量重定向。"""
+    override = os.environ.get("ACCORDANCE_HISTORY_FILE", "").strip()
+    if override:
+        return os.path.abspath(override)
+
+    history_dir = os.environ.get("ACCORDANCE_HISTORY_DIR", "").strip()
+    if history_dir:
+        path = os.path.abspath(history_dir)
+        os.makedirs(path, exist_ok=True)
+        return os.path.join(path, "question_history.json")
+
+    return os.path.join(_data_dir(), "question_history.json")
+
+
+HISTORY_FILE = _history_file()
+HISTORY_DISABLED = _truthy_env("ACCORDANCE_HISTORY_DISABLED")
 HISTORY_SCHEMA_VERSION = 2
 MAX_HISTORY_ENTRIES = 120
 MAX_HISTORY_BYTES = 96 * 1024
@@ -454,15 +474,20 @@ class QuestionHistory:
     自动从文件加载，每次记录后自动保存。
     """
 
-    def __init__(self, similarity_threshold=SIMILARITY_BANDS[-1]["min_score"], history_file=None):
+    def __init__(self, similarity_threshold=SIMILARITY_BANDS[-1]["min_score"], history_file=None, disabled=None):
         self._threshold = similarity_threshold
         self._history_file = history_file or HISTORY_FILE
+        self._disabled = HISTORY_DISABLED if disabled is None else bool(disabled)
         self._history = []
         self._loaded = False
 
     def _ensure_loaded(self):
         """惰性加载历史文件。"""
         if self._loaded:
+            return
+        if self._disabled:
+            self._history = []
+            self._loaded = True
             return
         should_migrate = False
         try:
@@ -480,6 +505,8 @@ class QuestionHistory:
 
     def _save(self):
         """保存到磁盘，并控制历史文件体积。"""
+        if self._disabled:
+            return
         self._history = _compact_history(self._history)
         try:
             directory = os.path.dirname(self._history_file)
@@ -523,6 +550,8 @@ class QuestionHistory:
     def add_question(self, question, module_name, result_summary):
         """记录一次起卦并持久化。"""
         self._ensure_loaded()
+        if self._disabled:
+            return
         entry = {
             "question": question,
             "module": module_name,
@@ -547,6 +576,16 @@ class QuestionHistory:
     def stats(self):
         """返回历史统计信息。"""
         self._ensure_loaded()
+        if self._disabled:
+            return {
+                "total_questions": 0,
+                "oldest": "",
+                "newest": "",
+                "file": "历史记录已禁用（ACCORDANCE_HISTORY_DISABLED）",
+                "file_size": 0,
+                "max_entries": MAX_HISTORY_ENTRIES,
+                "max_bytes": MAX_HISTORY_BYTES,
+            }
         file_size = os.path.getsize(self._history_file) if os.path.exists(self._history_file) else 0
         return {
             "total_questions": len(self._history),
@@ -794,6 +833,9 @@ def record_question(question, module_label, result_summary):
 def show_history():
     """在菜单层展示最近的起卦历史。"""
     history = get_session_history()
+    if getattr(history, "_disabled", False):
+        print("历史记录已禁用（ACCORDANCE_HISTORY_DISABLED），本次运行不会读写问题历史。")
+        return
     recent = history.get_recent(5)
     if not recent:
         print("暂无起卦记录。")
