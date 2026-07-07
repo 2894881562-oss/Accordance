@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """八字命理 CLI。"""
 
-from core.bazi import analyze_bazi_birth, format_bazi_report
+from core.bazi import analyze_bazi_birth, format_bazi_report, parse_birth_datetime
 from core.question_history import handle_duplicate_check, record_question
 
 
@@ -9,11 +9,23 @@ def _sep(char="─", width=62):
     print(char * width)
 
 
-def _ask_int(prompt, default=None):
-    value = input(prompt).strip()
-    if not value and default is not None:
-        return default
-    return int(value)
+def _ask_int(prompt, default=None, min_value=None, max_value=None):
+    while True:
+        value = input(prompt).strip()
+        if not value and default is not None:
+            return default
+        try:
+            number = int(value)
+        except ValueError:
+            print("输入无效，请输入整数。")
+            continue
+        if min_value is not None and number < min_value:
+            print(f"输入无效，不能小于 {min_value}。")
+            continue
+        if max_value is not None and number > max_value:
+            print(f"输入无效，不能大于 {max_value}。")
+            continue
+        return number
 
 
 def _bazi_history_question(birth_date, birth_hour, birth_minute, gender):
@@ -43,12 +55,12 @@ def run_bazi_analysis():
     print("本功能按公历生日排四柱，节气分界采用工程近似；结果仅作传统文化研究参考。")
 
     birth_date = input("公历出生日期（YYYY-MM-DD）：").strip()
-    birth_hour = _ask_int("出生小时（0-23）：")
-    birth_minute = _ask_int("出生分钟（0-59，可回车默认0）：", 0)
+    birth_hour = _ask_int("出生小时（0-23）：", min_value=0, max_value=23)
+    birth_minute = _ask_int("出生分钟（0-59，可回车默认0）：", 0, min_value=0, max_value=59)
     gender = input("性别（可选，男/女/不填）：").strip()
 
     try:
-        result = analyze_bazi_birth(birth_date, birth_hour, birth_minute, gender)
+        parse_birth_datetime(birth_date, birth_hour, birth_minute)
     except ValueError as exc:
         print(f"输入错误：{exc}")
         return
@@ -57,6 +69,8 @@ def run_bazi_analysis():
     should_proceed, _ = handle_duplicate_check(history_question, "四柱八字", allow_rephrase=False)
     if not should_proceed:
         return
+
+    result = analyze_bazi_birth(birth_date, birth_hour, birth_minute, gender)
     record_question(history_question, "四柱八字", _bazi_history_summary(result))
 
     print()
