@@ -59,6 +59,19 @@ DETERMINISTIC_NO_FOCUS = {
     "modules/bazi.py": "四柱八字",
     "modules/method_selector.py": "起卦法选择器",
 }
+REQUIRED_HISTORY_WIRING = {
+    "modules/full_divination.py": ("六爻详占", ("handle_duplicate_check", "record_question")),
+    "modules/quick_divination.py": ("三爻快占", ("handle_duplicate_check", "record_question")),
+    "modules/name_divination.py": ("姓名起卦", ("handle_duplicate_check", "record_question", "allow_rephrase=False")),
+    "modules/item_search.py": ("寻物专项占", ("handle_duplicate_check", "record_question", "allow_rephrase=False")),
+    "modules/decision_helper.py": ("二选一决策", ("handle_duplicate_check", "record_question", "allow_rephrase=False")),
+    "modules/bazi.py": ("四柱八字", ("handle_duplicate_check", "record_question", "allow_rephrase=False")),
+    "modules/qimen.py": ("奇门运筹", ("handle_duplicate_check", "record_question", "allow_rephrase=False")),
+}
+DETERMINISTIC_NO_HISTORY = {
+    "modules/daily_fortune.py": "当日气运",
+    "modules/method_selector.py": "起卦法选择器",
+}
 
 
 def _issue(level, area, message, detail=""):
@@ -105,6 +118,43 @@ def audit_focus_seed_wiring():
                 "warning",
                 "凝神入口",
                 f"{feature_name}属于确定性或维护型功能，不建议接入凝神种子",
+                filename,
+            ))
+
+    return issues
+
+
+def audit_history_wiring():
+    """校验问事型 CLI 入口是否接入复问拦截和历史记录。"""
+    issues = []
+    project_root = Path(__file__).resolve().parents[1]
+
+    for filename, (feature_name, required_tokens) in REQUIRED_HISTORY_WIRING.items():
+        path = project_root / filename
+        if not path.exists():
+            issues.append(_issue("error", "历史记录", f"{feature_name}入口文件缺失", filename))
+            continue
+
+        text = path.read_text(encoding="utf-8")
+        missing_tokens = [token for token in required_tokens if token not in text]
+        if missing_tokens:
+            issues.append(_issue(
+                "error",
+                "历史记录",
+                f"{feature_name}缺少复问拦截或记录",
+                f"{filename} missing={missing_tokens}",
+            ))
+
+    for filename, feature_name in DETERMINISTIC_NO_HISTORY.items():
+        path = project_root / filename
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "record_question" in text:
+            issues.append(_issue(
+                "warning",
+                "历史记录",
+                f"{feature_name}不是具体起卦问事，不建议写入问事历史",
                 filename,
             ))
 
@@ -583,6 +633,7 @@ def run_rule_audit():
     """运行完整规则审计。"""
     checks = [
         ("凝神入口", audit_focus_seed_wiring),
+        ("历史记录", audit_history_wiring),
         ("八宫矩阵", audit_palace_hexagram_matrix),
         ("世应规则", audit_shi_ying_rules),
         ("纳甲规则", audit_najia_rules),
@@ -616,7 +667,7 @@ def format_rule_audit_report(audit_result=None):
         f"错误：{result['error_count']}；警告：{result['warning_count']}",
     ]
     if not result["issues"]:
-        lines.append("凝神入口、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则和起卦法选择器配置均已通过一致性校验。")
+        lines.append("凝神入口、历史记录、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则和起卦法选择器配置均已通过一致性校验。")
         return "\n".join(lines)
 
     for issue in result["issues"]:

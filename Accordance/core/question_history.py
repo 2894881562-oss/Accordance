@@ -686,7 +686,7 @@ def _sep():
     return "=" * 70
 
 
-def handle_duplicate_check(question, module_label):
+def handle_duplicate_check(question, module_label, allow_rephrase=True):
     """
     在起卦前调用，检查重复问题并分级处理。
 
@@ -695,6 +695,12 @@ def handle_duplicate_check(question, module_label):
     - 高度相似：7天内拦截，15天内提醒，之后轻提示放行
     - 近似相关：7天内提醒，不硬拦截
     - 相似度 < 阈值 → 正常放行
+
+    参数:
+        allow_rephrase:
+            True 适合六爻/三爻这类纯文本问事，可在提醒后直接改问法；
+            False 适合姓名、八字、寻物、二选一、奇门等结构化入口，
+            避免只改了问题文本却沿用旧的选项、笔画、出生时间或方位。
 
     返回:
         (should_proceed, question)
@@ -788,13 +794,13 @@ def handle_duplicate_check(question, module_label):
         if action == "block":
             print("  请选择：")
             print("    [1] 坚持重起（强烈不推荐）")
-            print("    [2] 换个问法")
+            print(f"    [2] {'换个问法' if allow_rephrase else '返回重新输入资料'}")
             print("    [3] 返回主菜单")
             choice = input("  → ").strip()
         else:
             print("  请选择：")
             print("    [1] 继续起卦（风险自担）")
-            print("    [2] 换个问法")
+            print(f"    [2] {'换个问法' if allow_rephrase else '返回重新输入资料'}")
             print("    [3] 返回主菜单")
             choice = input("  → ").strip()
 
@@ -812,6 +818,9 @@ def handle_duplicate_check(question, module_label):
             return True, question
 
         elif choice == "2":
+            if not allow_rephrase:
+                return False, question
+
             new_question = input("  请输入新的问题表述：").strip()
             if not new_question:
                 print("  问题不能为空。")

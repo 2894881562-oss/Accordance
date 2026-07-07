@@ -16,6 +16,8 @@ METHOD_KEY_BY_LABEL = {
     "当日气运": "daily",
     "寻物专项占": "item",
     "二选一决策": "decision",
+    "四柱八字": "bazi",
+    "奇门运筹": "qimen",
 }
 
 

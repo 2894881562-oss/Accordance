@@ -4,6 +4,7 @@
 from core.divination import name_qi_gua
 from core.interpretation import interpret_hexagram
 from core.qi_context import get_accurate_day_ganzhi
+from core.question_history import handle_duplicate_check, record_question
 
 
 def _sep(char="─", width=62):
@@ -22,6 +23,10 @@ def _input_positive_int(prompt):
         print("输入无效，请输入正整数笔画数。")
 
 
+def _name_history_question(xing, ming, xing_stroke, ming_stroke):
+    return f"姓名起卦：{xing}{ming}｜姓氏{xing_stroke}画｜名字{ming_stroke}画"
+
+
 def run_name_divination():
     """运行姓名起卦流程"""
     print()
@@ -33,10 +38,19 @@ def run_name_divination():
     ming = input("请输入名字：").strip() or "未命名名字"
     xing_stroke = _input_positive_int(f"请输入姓氏「{xing}」的总笔画数：")
     ming_stroke = _input_positive_int(f"请输入名字「{ming}」的总笔画数：")
+    history_question = _name_history_question(xing, ming, xing_stroke, ming_stroke)
+    should_proceed, _ = handle_duplicate_check(history_question, "姓名起卦", allow_rephrase=False)
+    if not should_proceed:
+        return
 
     name_gua_info = name_qi_gua(xing=xing, ming=ming, xing_stroke=xing_stroke, ming_stroke=ming_stroke)
     r = interpret_hexagram(name_gua_info)
     tiyong = r.get("tiyong_info", {})
+    record_question(
+        history_question,
+        "姓名起卦",
+        f"{r['gua_name']}（{r['ji_xiong']}），体用：{tiyong.get('relation', '未知')}",
+    )
 
     # ===== 基本信息 =====
     print()

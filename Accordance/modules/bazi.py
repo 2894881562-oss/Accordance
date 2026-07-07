@@ -2,6 +2,7 @@
 """八字命理 CLI。"""
 
 from core.bazi import analyze_bazi_birth, format_bazi_report
+from core.question_history import handle_duplicate_check, record_question
 
 
 def _sep(char="─", width=62):
@@ -13,6 +14,24 @@ def _ask_int(prompt, default=None):
     if not value and default is not None:
         return default
     return int(value)
+
+
+def _bazi_history_question(birth_date, birth_hour, birth_minute, gender):
+    gender_text = gender or "未指定"
+    return f"八字：{birth_date} {birth_hour:02d}:{birth_minute:02d}｜性别：{gender_text}"
+
+
+def _bazi_history_summary(result):
+    day_master = result.get("day_master", {})
+    pattern = result.get("pattern_analysis", {})
+    timing = result.get("current_timing_analysis", {})
+    return (
+        f"{result.get('bazi', '未知八字')}，"
+        f"日主{day_master.get('day_gan', '未知')}{day_master.get('day_element', '')}，"
+        f"{day_master.get('level', '强弱未定')}，"
+        f"{pattern.get('pattern', '格局未定')}，"
+        f"岁运{timing.get('level', '未评估')}"
+    )
 
 
 def run_bazi_analysis():
@@ -33,6 +52,12 @@ def run_bazi_analysis():
     except ValueError as exc:
         print(f"输入错误：{exc}")
         return
+
+    history_question = _bazi_history_question(birth_date, birth_hour, birth_minute, gender)
+    should_proceed, _ = handle_duplicate_check(history_question, "四柱八字", allow_rephrase=False)
+    if not should_proceed:
+        return
+    record_question(history_question, "四柱八字", _bazi_history_summary(result))
 
     print()
     print(format_bazi_report(result))

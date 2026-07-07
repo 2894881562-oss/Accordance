@@ -111,14 +111,18 @@ def run_item_search():
     search_scope = input("搜索范围：1小范围/2大范围或不确定（默认1）：").strip() or "1"
     external_omen = input("若有外应请输入，无则回车：").strip()
 
+    question_text = f"寻找{item_name}"
+    history_question = (
+        f"寻物：{item_name}｜最后位置：{last_place}｜"
+        f"特征：{item_feature}｜范围：{search_scope}"
+    )
+    should_proceed, _ = handle_duplicate_check(history_question, "寻物专项占", allow_rephrase=False)
+    if not should_proceed:
+        return
+
     print("\n请静心回想最后一次见到该物品的位置。")
     print("专注于该物品的形状、颜色、用途、最后一次使用场景。")
     focus_info = collect_focus_seed("准备好后，按回车键开始起卦...")
-
-    question_text = f"寻找{item_name}"
-    should_proceed, question_text = handle_duplicate_check(question_text, "寻物专项占")
-    if not should_proceed:
-        return
 
     question_profile = build_question_profile(question_text, current_method_key="item")
     print()
@@ -133,7 +137,7 @@ def run_item_search():
     r = interpret_three_yao(three_yao_info)
 
     record_question(
-        question_text, "寻物专项占",
+        history_question, "寻物专项占",
         f"得{three_yao_info['gua_info']['name']}卦，方位{three_yao_info['gua_info']['position']}"
     )
 

@@ -49,6 +49,10 @@ def _option_qi_gua(question, option_text, focus_seed=0):
     }
 
 
+def _decision_history_question(question, option_a, option_b):
+    return f"二选一：{question}｜A：{option_a}｜B：{option_b}"
+
+
 def _option_score(r):
     """计算选项综合评分。"""
     score = r["ji_xiong_score"] * 15
@@ -232,7 +236,8 @@ def run_decision_helper(prefilled_question=None):
     option_a = input("请输入选项A：").strip() or "选项A"
     option_b = input("请输入选项B：").strip() or "选项B"
 
-    should_proceed, question = handle_duplicate_check(question, "二选一决策")
+    history_question = _decision_history_question(question, option_a, option_b)
+    should_proceed, _ = handle_duplicate_check(history_question, "二选一决策", allow_rephrase=False)
     if not should_proceed:
         return
 
@@ -257,7 +262,7 @@ def run_decision_helper(prefilled_question=None):
     r_b["_score"] = score_b
 
     record_question(
-        question, "二选一决策",
+        history_question, "二选一决策",
         f"A「{option_a}」→ {r_a['gua_name']}（{r_a['ji_xiong']}），"
         f"B「{option_b}」→ {r_b['gua_name']}（{r_b['ji_xiong']}）"
     )
