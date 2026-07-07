@@ -39,7 +39,12 @@ def run_name_divination():
     xing_stroke = _input_positive_int(f"请输入姓氏「{xing}」的总笔画数：")
     ming_stroke = _input_positive_int(f"请输入名字「{ming}」的总笔画数：")
     history_question = _name_history_question(xing, ming, xing_stroke, ming_stroke)
-    should_proceed, _ = handle_duplicate_check(history_question, "姓名起卦", allow_rephrase=False)
+    should_proceed, _ = handle_duplicate_check(
+        history_question,
+        "姓名起卦",
+        allow_rephrase=False,
+        match_mode="exact",
+    )
     if not should_proceed:
         return
 
