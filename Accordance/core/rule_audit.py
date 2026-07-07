@@ -515,6 +515,13 @@ def audit_qimen_rules():
             issues.append(_issue("error", "奇门", "样例结果缺少综合裁决摘要", str(integrated)))
         if not integrated.get("primary_direction") or "综合裁决" not in integrated.get("summary", ""):
             issues.append(_issue("error", "奇门", "样例结果综合裁决缺少主位或摘要标识", str(integrated)))
+        confidence = result.get("confidence_profile", {})
+        if not isinstance(confidence.get("score"), int) or not (0 <= confidence.get("score", -1) <= 100):
+            issues.append(_issue("error", "奇门", "样例结果置信度分数非法", str(confidence)))
+        if not confidence.get("level") or not confidence.get("summary") or not confidence.get("boundary"):
+            issues.append(_issue("error", "奇门", "样例结果缺少置信度摘要或边界", str(confidence)))
+        if not confidence.get("reasons") or not confidence.get("improve"):
+            issues.append(_issue("error", "奇门", "样例结果置信度缺少支撑因素或提纯路径", str(confidence)))
     except Exception as exc:
         issues.append(_issue("error", "奇门", "样例起局失败", str(exc)))
 

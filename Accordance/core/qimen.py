@@ -1372,6 +1372,135 @@ def _build_integrated_decision(
     }
 
 
+def _build_confidence_profile(
+    best_palaces,
+    current_palace,
+    pattern_diagnostics,
+    geng_risk,
+    execution_guardrails,
+    integrated_decision,
+    timing_windows=None,
+):
+    """评估本次综合裁决的可靠度、信息缺口和提纯路径。"""
+    best = best_palaces[0]
+    counts = pattern_diagnostics.get("counts", {})
+    risk_level = geng_risk.get("level", "")
+    guard_level = execution_guardrails.get("level", "")
+    final_signal = integrated_decision.get("final_signal", "")
+    conflicts = integrated_decision.get("conflicts", [])
+    timing_best = (timing_windows or {}).get("best")
+    current_timing = next(
+        (item for item in (timing_windows or {}).get("items", []) if item.get("label") == "当前时辰"),
+        None,
+    )
+
+    score = 70.0
+    reasons = []
+    gaps = []
+    improve = []
+
+    if final_signal == "分层推进":
+        score += 8
+        reasons.append("综合裁决允许分层推进。")
+    elif final_signal == "低成本试点":
+        score -= 5
+        reasons.append("综合裁决已降级为低成本试点。")
+    elif final_signal == "等待窗口":
+        score -= 8
+        reasons.append("当前时机不是最佳窗口。")
+    elif final_signal == "暂缓执行":
+        score -= 18
+        reasons.append("综合裁决要求暂缓执行。")
+    else:
+        score -= 10
+        reasons.append("综合裁决仍需小步校验。")
+
+    if conflicts:
+        penalty = min(28, len(conflicts) * 7)
+        score -= penalty
+        reasons.append(f"存在{len(conflicts)}条内部信号冲突，扣减{penalty}分。")
+    else:
+        score += 8
+        reasons.append("未发现明显内部信号冲突。")
+
+    if risk_level == "高风险":
+        score -= 18
+        gaps.append("庚格高风险尚未化解。")
+    elif risk_level == "需避锋":
+        score -= 10
+        gaps.append("庚格需避锋，仍需证据、权限或节奏化解压力。")
+    elif risk_level == "压力有限":
+        score += 5
+        reasons.append("庚格压力有限。")
+
+    if best.get("is_empty"):
+        score -= 8
+        gaps.append(f"主位{best['palace']['direction']}方逢空亡，资源、承诺和人员需复核。")
+    if counts.get("hard_combos", 0) >= 3:
+        score -= 8
+        gaps.append("高压组合偏多，需要先做止损预案。")
+    if counts.get("aligned_good", 0) >= 3:
+        score += 6
+        reasons.append("门星神同向助力不少于三处。")
+    if counts.get("empty_palaces", 0) >= 3:
+        score -= 6
+        gaps.append("空亡落点偏多，口头承诺和资源到位率需核验。")
+
+    if current_palace is None:
+        score -= 5
+        gaps.append("未输入当前方位，主客落点无法完全校准。")
+    elif current_palace["score"] >= 3:
+        score += 4
+        reasons.append("当前方位有一定承载力。")
+    elif current_palace["score"] < 0:
+        score -= 6
+        gaps.append("当前方位评分偏低，不宜直接承接关键动作。")
+
+    if timing_best and current_timing:
+        delta = round(timing_best["window_score"] - current_timing["window_score"], 2)
+        if timing_best.get("label") == "当前时辰":
+            score += 4
+            reasons.append("当前时辰为本轮比较中的最佳窗口。")
+        elif delta >= 1:
+            score -= 6
+            gaps.append(f"最佳窗口不在当前时辰，时机差为{delta}分。")
+
+    score = max(0, min(100, round(score)))
+    if score >= 75:
+        level = "较高"
+        stance = "可按裁决推进，但仍保留复核。"
+    elif score >= 55:
+        level = "中等"
+        stance = "适合小步推进或低成本试点。"
+    elif score >= 35:
+        level = "偏低"
+        stance = "先补信息、控风险，再考虑行动。"
+    else:
+        level = "很低"
+        stance = "不宜执行关键动作，只做准备和复核。"
+
+    if guard_level in {"试点", "先试探", "暂缓"}:
+        improve.append("先满足执行闸门中的必查项，再提高行动强度。")
+    if gaps:
+        improve.append("优先处理信息缺口中排在前面的现实问题。")
+    improve.extend([
+        "用低成本动作验证对方权限、资源到位和反馈方向。",
+        "关键承诺尽量落到文本、证据或可复盘记录。",
+    ])
+
+    summary = f"置信度：{level}（{score}/100）。{stance}"
+    return {
+        "score": score,
+        "level": level,
+        "stance": stance,
+        "summary": summary,
+        "reasons": reasons,
+        "gaps": gaps,
+        "improve": improve,
+        "boundary": "置信度只衡量本报告内部信号和现实信息缺口，不代表事件结果概率。",
+    }
+
+
 def _plain_conclusion(
     topic,
     scenario,
@@ -1541,7 +1670,18 @@ def analyze_qimen(
         result["timing_windows"],
     )
     result["integrated_decision"] = integrated_decision
+    confidence_profile = _build_confidence_profile(
+        best_palaces,
+        current_palace,
+        pattern_diagnostics,
+        geng_risk,
+        execution_guardrails,
+        integrated_decision,
+        result["timing_windows"],
+    )
+    result["confidence_profile"] = confidence_profile
     result["plain_conclusion"] = f"{result['plain_conclusion']} {integrated_decision['summary']}"
+    result["plain_conclusion"] = f"{result['plain_conclusion']} {confidence_profile['summary']}"
     return result
 
 
@@ -1718,6 +1858,23 @@ def format_qimen_report(result: Dict[str, Any]) -> str:
             lines.append(f"  - {item}")
     lines.append(f"最终动作：{decision['final_action']}")
     lines.append(decision["boundary"])
+
+    confidence = result["confidence_profile"]
+    lines.append("")
+    lines.append("【置信度校准】")
+    lines.append(confidence["summary"])
+    if confidence["reasons"]:
+        lines.append("支撑因素：")
+        for item in confidence["reasons"]:
+            lines.append(f"  - {item}")
+    if confidence["gaps"]:
+        lines.append("信息缺口：")
+        for item in confidence["gaps"]:
+            lines.append(f"  - {item}")
+    lines.append("提纯路径：")
+    for item in confidence["improve"]:
+        lines.append(f"  - {item}")
+    lines.append(confidence["boundary"])
 
     lines.append("")
     lines.append("【方位运筹】")
