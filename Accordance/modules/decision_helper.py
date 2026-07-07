@@ -7,7 +7,7 @@
 
 from core.divination import get_lunar_time
 from core.interpretation import interpret_hexagram
-from core.qi_context import get_accurate_day_ganzhi
+from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
 from core.question_precheck import build_question_profile, format_question_profile
 from core.question_history import handle_duplicate_check, record_question
 from config.bagua_data import BAGUA_DATA
@@ -30,22 +30,22 @@ def _text_to_seed(text):
     return sum(ord(c) for c in text)
 
 
-def _option_qi_gua(question, option_text):
+def _option_qi_gua(question, option_text, focus_seed=0):
     """选项文字起卦法。"""
     lunar_info = get_lunar_time()
     qs = _text_to_seed(question)
     os = _text_to_seed(option_text)
     m, d, sc = lunar_info["month"], lunar_info["day"], lunar_info["shi_chen"]
 
-    upper_num = _normalize_mod(qs + m + d, 8)
-    lower_num = _normalize_mod(os + d + sc, 8)
-    dong_yao = _normalize_mod(qs + os + m + d + sc, 6)
+    upper_num = _normalize_mod(qs + m + d + focus_seed, 8)
+    lower_num = _normalize_mod(os + d + sc + focus_seed // 2, 8)
+    dong_yao = _normalize_mod(qs + os + m + d + sc + focus_seed // 3, 6)
 
     return {
         "upper_gua": BAGUA_DATA[upper_num], "lower_gua": BAGUA_DATA[lower_num],
         "upper_num": upper_num, "lower_num": lower_num, "dong_yao": dong_yao,
         "lunar_info": lunar_info, "question": question, "mode": "decision",
-        "extra_text": option_text,
+        "extra_text": option_text, "focus_seed": focus_seed,
     }
 
 
@@ -245,13 +245,14 @@ def run_decision_helper(prefilled_question=None):
     print(f"  A：{option_a}")
     print(f"  B：{option_b}")
     print(f"  日干支：{get_accurate_day_ganzhi()}")
-    input("确认后按回车开始分析...")
+    focus_info = collect_focus_seed("请静心凝神，专注于两个选项的真实取舍。准备好后按回车开始分析...")
+    print(f"  凝神停顿：{focus_info['focus_seconds']:.2f}秒")
 
-    r_a = interpret_hexagram(_option_qi_gua(question, option_a))
+    r_a = interpret_hexagram(_option_qi_gua(question, option_a, focus_info["focus_seed"]))
     score_a = _option_score(r_a)
     r_a["_score"] = score_a
 
-    r_b = interpret_hexagram(_option_qi_gua(question, option_b))
+    r_b = interpret_hexagram(_option_qi_gua(question, option_b, focus_info["focus_seed"]))
     score_b = _option_score(r_b)
     r_b["_score"] = score_b
 

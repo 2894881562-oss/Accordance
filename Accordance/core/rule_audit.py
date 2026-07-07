@@ -6,6 +6,7 @@
 """
 
 import datetime
+from pathlib import Path
 
 from config.bagua_data import NUM_TO_GUA_NAME, PALACE_HEXAGRAMS, PALACE_WUXING
 from config.bazi_data import DIZHI_HIDDEN_STEMS, GAN_YINYANG, TEN_GOD_GROUP
@@ -45,6 +46,19 @@ TIANGAN_ORDER = set(TIANGAN_WUXING)
 VALID_DIZHI = set(DIZHI_ORDER)
 VALID_LIUQIN = {"父母", "兄弟", "子孙", "妻财", "官鬼"}
 REQUIRED_CALIBRATION_FIELDS = ("axis", "keywords", "proper_use", "risk")
+REQUIRED_FOCUS_WIRING = {
+    "modules/full_divination.py": ("六爻详占", ("collect_focus_seed", "focus_seed")),
+    "modules/quick_divination.py": ("三爻快占", ("collect_focus_seed", "focus_seed")),
+    "modules/item_search.py": ("寻物专项占", ("collect_focus_seed", "focus_seed")),
+    "modules/decision_helper.py": ("二选一决策", ("collect_focus_seed", "focus_seed")),
+    "modules/qimen.py": ("奇门运筹", ("collect_focus_seed", "current=focus_moment")),
+}
+DETERMINISTIC_NO_FOCUS = {
+    "modules/daily_fortune.py": "当日气运",
+    "modules/name_divination.py": "姓名起卦",
+    "modules/bazi.py": "四柱八字",
+    "modules/method_selector.py": "起卦法选择器",
+}
 
 
 def _issue(level, area, message, detail=""):
@@ -58,6 +72,43 @@ def _issue(level, area, message, detail=""):
 
 def _hexagram_names():
     return {detail.get("name", "") for detail in HEXAGRAM_DATA.values()}
+
+
+def audit_focus_seed_wiring():
+    """校验需要承接当下问念的 CLI 入口是否配备凝神步骤。"""
+    issues = []
+    project_root = Path(__file__).resolve().parents[1]
+
+    for filename, (feature_name, required_tokens) in REQUIRED_FOCUS_WIRING.items():
+        path = project_root / filename
+        if not path.exists():
+            issues.append(_issue("error", "凝神入口", f"{feature_name}入口文件缺失", filename))
+            continue
+
+        text = path.read_text(encoding="utf-8")
+        missing_tokens = [token for token in required_tokens if token not in text]
+        if missing_tokens:
+            issues.append(_issue(
+                "error",
+                "凝神入口",
+                f"{feature_name}缺少凝神承接",
+                f"{filename} missing={missing_tokens}",
+            ))
+
+    for filename, feature_name in DETERMINISTIC_NO_FOCUS.items():
+        path = project_root / filename
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "collect_focus_seed" in text:
+            issues.append(_issue(
+                "warning",
+                "凝神入口",
+                f"{feature_name}属于确定性或维护型功能，不建议接入凝神种子",
+                filename,
+            ))
+
+    return issues
 
 
 def audit_palace_hexagram_matrix():
@@ -531,6 +582,7 @@ def audit_qimen_rules():
 def run_rule_audit():
     """运行完整规则审计。"""
     checks = [
+        ("凝神入口", audit_focus_seed_wiring),
         ("八宫矩阵", audit_palace_hexagram_matrix),
         ("世应规则", audit_shi_ying_rules),
         ("纳甲规则", audit_najia_rules),
@@ -564,7 +616,7 @@ def format_rule_audit_report(audit_result=None):
         f"错误：{result['error_count']}；警告：{result['warning_count']}",
     ]
     if not result["issues"]:
-        lines.append("纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则和起卦法选择器配置均已通过一致性校验。")
+        lines.append("凝神入口、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则和起卦法选择器配置均已通过一致性校验。")
         return "\n".join(lines)
 
     for issue in result["issues"]:
