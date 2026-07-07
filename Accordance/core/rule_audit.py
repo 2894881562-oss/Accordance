@@ -13,6 +13,7 @@ from config.bazi_data import DIZHI_HIDDEN_STEMS, GAN_YINYANG, TEN_GOD_GROUP
 from config.hexagram_calibration import HEXAGRAM_CALIBRATION, build_calibration_tip
 from config.hexagram_data import HEXAGRAM_DATA
 from config.naja_data import BAGUA_NAJIA, BAGUA_SHI_YING, LIUSHEN_ORDER, LIUSHEN_START, NAYIN_TABLE
+from config.name_strokes import KANGXI_STROKES, analyze_text_strokes
 from config.qimen_data import (
     EIGHT_DOORS,
     EIGHT_GODS,
@@ -157,6 +158,39 @@ def audit_history_wiring():
                 f"{feature_name}不是具体起卦问事，不建议写入问事历史",
                 filename,
             ))
+
+    return issues
+
+
+def audit_name_stroke_data():
+    """校验姓名起卦自动笔画表的关键样例。"""
+    issues = []
+    required_samples = {
+        "张": 11,
+        "三": 3,
+        "李": 7,
+        "四": 5,
+        "马": 10,
+        "梦": 14,
+    }
+    for char, expected in required_samples.items():
+        actual = KANGXI_STROKES.get(char)
+        if actual != expected:
+            issues.append(_issue(
+                "error",
+                "姓名笔画",
+                f"{char} 的康熙笔画不符合关键样例",
+                f"actual={actual} expected={expected}",
+            ))
+
+    zhang_san = analyze_text_strokes("张三")
+    if zhang_san["missing"] or zhang_san["total"] != 14:
+        issues.append(_issue(
+            "error",
+            "姓名笔画",
+            "张三自动笔画合计错误",
+            str(zhang_san),
+        ))
 
     return issues
 
@@ -634,6 +668,7 @@ def run_rule_audit():
     checks = [
         ("凝神入口", audit_focus_seed_wiring),
         ("历史记录", audit_history_wiring),
+        ("姓名笔画", audit_name_stroke_data),
         ("八宫矩阵", audit_palace_hexagram_matrix),
         ("世应规则", audit_shi_ying_rules),
         ("纳甲规则", audit_najia_rules),
@@ -667,7 +702,7 @@ def format_rule_audit_report(audit_result=None):
         f"错误：{result['error_count']}；警告：{result['warning_count']}",
     ]
     if not result["issues"]:
-        lines.append("凝神入口、历史记录、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则和起卦法选择器配置均已通过一致性校验。")
+        lines.append("凝神入口、历史记录、姓名笔画、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则和起卦法选择器配置均已通过一致性校验。")
         return "\n".join(lines)
 
     for issue in result["issues"]:

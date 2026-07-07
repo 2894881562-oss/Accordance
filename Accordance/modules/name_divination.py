@@ -5,6 +5,7 @@ from core.divination import name_qi_gua
 from core.interpretation import interpret_hexagram
 from core.qi_context import get_accurate_day_ganzhi
 from core.question_history import handle_duplicate_check, record_question
+from config.name_strokes import analyze_text_strokes
 
 
 def _sep(char="─", width=62):
@@ -23,6 +24,27 @@ def _input_positive_int(prompt):
         print("输入无效，请输入正整数笔画数。")
 
 
+def _fill_missing_strokes(label, analysis):
+    if not analysis["missing"]:
+        return analysis
+
+    total = analysis["total"]
+    details = []
+    for item in analysis["details"]:
+        if item["stroke"] is not None:
+            details.append(item)
+            continue
+        stroke = _input_positive_int(f"未识别{label}字「{item['char']}」的康熙笔画，请手动输入：")
+        total += stroke
+        details.append({"char": item["char"], "stroke": stroke})
+
+    return {"total": total, "details": details, "missing": []}
+
+
+def _format_stroke_details(analysis):
+    return " + ".join(f"{item['char']}{item['stroke']}画" for item in analysis["details"])
+
+
 def _name_history_question(xing, ming, xing_stroke, ming_stroke):
     return f"姓名起卦：{xing}{ming}｜姓氏{xing_stroke}画｜名字{ming_stroke}画"
 
@@ -36,8 +58,11 @@ def run_name_divination():
 
     xing = input("请输入姓氏：").strip() or "未命名姓氏"
     ming = input("请输入名字：").strip() or "未命名名字"
-    xing_stroke = _input_positive_int(f"请输入姓氏「{xing}」的总笔画数：")
-    ming_stroke = _input_positive_int(f"请输入名字「{ming}」的总笔画数：")
+    xing_analysis = _fill_missing_strokes("姓氏", analyze_text_strokes(xing))
+    ming_analysis = _fill_missing_strokes("名字", analyze_text_strokes(ming))
+    xing_stroke = xing_analysis["total"]
+    ming_stroke = ming_analysis["total"]
+
     history_question = _name_history_question(xing, ming, xing_stroke, ming_stroke)
     should_proceed, _ = handle_duplicate_check(
         history_question,
@@ -47,6 +72,13 @@ def run_name_divination():
     )
     if not should_proceed:
         return
+
+    print(
+        f"自动识别笔画：姓氏「{xing}」{xing_stroke}画"
+        f"（{_format_stroke_details(xing_analysis)}）；"
+        f"名字「{ming}」{ming_stroke}画"
+        f"（{_format_stroke_details(ming_analysis)}）。"
+    )
 
     name_gua_info = name_qi_gua(xing=xing, ming=ming, xing_stroke=xing_stroke, ming_stroke=ming_stroke)
     r = interpret_hexagram(name_gua_info)
