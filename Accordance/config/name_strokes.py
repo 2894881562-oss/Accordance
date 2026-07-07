@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
-"""常用姓名汉字康熙笔画近似表。
+"""姓名汉字康熙笔画近似表。
 
 本表用于 CLI 姓名起卦的自动笔画识别。姓名学通常按康熙笔画取数；
-未覆盖的生僻字由 CLI 退回手动确认，避免用不可靠规则硬猜。
+手工表覆盖常见姓名学取数，未覆盖的生僻字再查官方 Unihan 生成库。
 """
+
+import json
+from pathlib import Path
+
 
 KANGXI_STROKES = {
     # 常见姓氏
@@ -45,10 +49,37 @@ KANGXI_STROKES = {
     "兰": 23, "艳": 24, "鑫": 24, "梦": 14,
 }
 
+_UNIHAN_STROKES = None
+
+
+def _load_unihan_strokes():
+    """懒加载 Unicode Unihan 生成的补充笔画库。"""
+    global _UNIHAN_STROKES
+    if _UNIHAN_STROKES is not None:
+        return _UNIHAN_STROKES
+
+    path = Path(__file__).with_name("name_strokes_unihan.json")
+    try:
+        with path.open("r", encoding="utf-8") as file:
+            payload = json.load(file)
+    except (OSError, json.JSONDecodeError):
+        _UNIHAN_STROKES = {}
+        return _UNIHAN_STROKES
+
+    strokes = payload.get("strokes", {}) if isinstance(payload, dict) else {}
+    _UNIHAN_STROKES = {
+        char: int(value)
+        for char, value in strokes.items()
+        if isinstance(char, str) and len(char) == 1 and isinstance(value, int)
+    }
+    return _UNIHAN_STROKES
+
 
 def get_kangxi_stroke(char):
-    """返回单字康熙笔画；未覆盖时返回 None。"""
-    return KANGXI_STROKES.get(char)
+    """返回单字姓名笔画；手工表优先，未覆盖时查 Unihan 补充库。"""
+    if char in KANGXI_STROKES:
+        return KANGXI_STROKES[char]
+    return _load_unihan_strokes().get(char)
 
 
 def analyze_text_strokes(text):
