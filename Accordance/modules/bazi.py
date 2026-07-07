@@ -71,7 +71,12 @@ def run_bazi_analysis():
     gender = input("性别（可选，男/女/不填）：").strip()
 
     history_question = _bazi_history_question(birth_date, birth_hour, birth_minute, gender)
-    should_proceed, _ = handle_duplicate_check(history_question, "四柱八字", allow_rephrase=False)
+    should_proceed, _ = handle_duplicate_check(
+        history_question,
+        "四柱八字",
+        allow_rephrase=False,
+        match_mode="exact",
+    )
     if not should_proceed:
         return
 

@@ -547,6 +547,30 @@ class QuestionHistory:
 
         return False, None, 0.0, "", 0.0, None
 
+    def check_exact_duplicate(self, question, module_name):
+        """
+        按模块和规范文本做精确复问判定。
+
+        适合八字这类结构化资料：同类格式相似不代表同一命盘，
+        只有日期、时间、性别等规范字段完全一致才视为复问。
+        """
+        self._ensure_loaded()
+        normalized_question = _normalize(question)
+        for entry in reversed(self._history):
+            if _entry_module(entry) != module_name:
+                continue
+            prev_question = _entry_question(entry)
+            if not prev_question or _normalize(prev_question) != normalized_question:
+                continue
+
+            prev_ts = _entry_timestamp(entry)
+            days_elapsed = max(0.0, (time.time() - prev_ts) / 86400.0)
+            action, band = _classify_repeat(1.0, days_elapsed)
+            if band:
+                return True, entry, 1.0, action, round(days_elapsed, 1), band
+
+        return False, None, 0.0, "", 0.0, None
+
     def add_question(self, question, module_name, result_summary):
         """记录一次起卦并持久化。"""
         self._ensure_loaded()
@@ -686,7 +710,7 @@ def _sep():
     return "=" * 70
 
 
-def handle_duplicate_check(question, module_label, allow_rephrase=True):
+def handle_duplicate_check(question, module_label, allow_rephrase=True, match_mode="semantic"):
     """
     在起卦前调用，检查重复问题并分级处理。
 
@@ -701,14 +725,21 @@ def handle_duplicate_check(question, module_label, allow_rephrase=True):
             True 适合六爻/三爻这类纯文本问事，可在提醒后直接改问法；
             False 适合姓名、八字、寻物、二选一、奇门等结构化入口，
             避免只改了问题文本却沿用旧的选项、笔画、出生时间或方位。
+        match_mode:
+            semantic 使用语义相似度；exact 仅匹配同模块下完全一致的规范问事文本。
 
     返回:
         (should_proceed, question)
     """
     history = get_session_history()
-    is_dup, matched, sim_score, action, days_ago, band = history.check_duplicate(
-        question, module_label
-    )
+    if match_mode == "exact":
+        is_dup, matched, sim_score, action, days_ago, band = history.check_exact_duplicate(
+            question, module_label
+        )
+    else:
+        is_dup, matched, sim_score, action, days_ago, band = history.check_duplicate(
+            question, module_label
+        )
 
     if not is_dup or not matched or not band:
         return True, question
@@ -825,7 +856,12 @@ def handle_duplicate_check(question, module_label, allow_rephrase=True):
             if not new_question:
                 print("  问题不能为空。")
                 continue
-            return handle_duplicate_check(new_question, module_label)
+            return handle_duplicate_check(
+                new_question,
+                module_label,
+                allow_rephrase=allow_rephrase,
+                match_mode=match_mode,
+            )
 
         elif choice == "3":
             return False, question
