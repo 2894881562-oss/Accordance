@@ -18,7 +18,6 @@ from modules.decision_helper import run_decision_helper
 from modules.method_selector import run_method_selector
 from modules.bazi import run_bazi_analysis
 from modules.qimen import run_qimen_analysis
-from modules.rule_audit import run_rule_audit_cli
 from core.question_history import show_history
 
 
@@ -47,11 +46,10 @@ def main_menu():
     print("4. 当日气运指引（日卦为基，查看当日整体运势基调）")
     print("5. 寻物专项占（八卦方位 + 物品特征推理）")
     print("6. 二选一决策辅助（双卦对比 + 风险分析）")
-    print("7. 查看近期起卦记录")
-    print("8. 起卦法选择器（按问题推荐入口）")
-    print("9. 四柱八字基础分析（十神/强弱/阶段/格局倾向）")
-    print("10. 奇门运筹分析（方位/时机/格局/裁决/置信度）")
-    print("11. 规则数据审计（纳甲/世应/八字/奇门/选择器）")
+    print("7. 四柱八字基础分析（十神/强弱/阶段/格局倾向）")
+    print("8. 奇门运筹分析（方位/时机/格局/裁决/置信度）")
+    print("9. 查看近期起卦记录")
+    print("10. 起卦法选择器（按问题推荐入口）")
     print("0. 退出系统")
 
     print_separator()
@@ -91,19 +89,16 @@ def main():
             run_decision_helper()
 
         elif choice == "7":
-            show_history()
-
-        elif choice == "8":
-            run_method_selector()
-
-        elif choice == "9":
             run_bazi_analysis()
 
-        elif choice == "10":
+        elif choice == "8":
             run_qimen_analysis()
 
-        elif choice == "11":
-            run_rule_audit_cli()
+        elif choice == "9":
+            show_history()
+
+        elif choice == "10":
+            run_method_selector()
 
         else:
             print("输入错误，请重新选择！")

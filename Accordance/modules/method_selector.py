@@ -27,10 +27,10 @@ def _dispatch(menu, question):
     elif menu == "6":
         from modules.decision_helper import run_decision_helper
         run_decision_helper(prefilled_question=question)
-    elif menu == "9":
+    elif menu == "7":
         from modules.bazi import run_bazi_analysis
         run_bazi_analysis()
-    elif menu == "10":
+    elif menu == "8":
         from modules.qimen import run_qimen_analysis
         run_qimen_analysis(prefilled_topic=question)
 
