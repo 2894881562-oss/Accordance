@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """多选最优决策辅助模块。"""
 
+import re
+
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
 from core.question_history import handle_duplicate_check, record_question
 from core.question_precheck import build_question_profile, format_question_profile
@@ -9,6 +11,9 @@ from core.interpretation import interpret_hexagram
 
 
 OPTION_LABELS = list("ABCDEFGHI")
+WEEKDAY_TERMS = ("周一", "周二", "周三", "周四", "周五", "周六", "周日", "周天")
+LIST_SEPARATORS = r"[、,，/／|｜;；\n]+"
+QUESTION_HINTS = ("哪个", "哪一个", "哪天", "如何", "怎么", "是否", "要不要", "适合", "最优", "选择", "帮我")
 
 
 def _sep(char="─", width=62):
@@ -17,7 +22,9 @@ def _sep(char="─", width=62):
 
 def _ask_option_count():
     while True:
-        raw = input("请输入选项数量（3-9）：").strip()
+        raw = input("请输入选项数量（3-9，0返回主菜单）：").strip()
+        if raw in {"0", "q", "Q", "返回"}:
+            return None
         try:
             count = int(raw)
         except ValueError:
@@ -39,6 +46,63 @@ def _ask_options(count):
         option = input(f"请输入选项{label}：").strip()
         options.append(option or f"选项{label}")
     return options
+
+
+def _clean_detected_option(text):
+    option = text.strip()
+    option = re.sub(r"^(?:选项)?[A-Ia-i][\.、:：\)]\s*", "", option)
+    option = re.sub(r"^方案[一二三四五六七八九十\d]+[\.、:：\)]?\s*", "", option)
+    return option.strip(" 　：:，,。.;；")
+
+
+def _extract_weekday_options(text):
+    options = []
+    for term in WEEKDAY_TERMS:
+        if term in text and term not in options:
+            options.append(term)
+    return options if 3 <= len(options) <= len(OPTION_LABELS) else []
+
+
+def _extract_options_from_question(question):
+    """从“周一、周二、周三”这类问题文本中识别已列出的选项。"""
+    text = (question or "").strip()
+    if not text:
+        return []
+
+    weekday_options = _extract_weekday_options(text)
+    if weekday_options:
+        return weekday_options
+
+    if not re.search(LIST_SEPARATORS, text):
+        return []
+
+    parts = [_clean_detected_option(part) for part in re.split(LIST_SEPARATORS, text)]
+    options = []
+    for part in parts:
+        if not part or part in options:
+            continue
+        if any(hint in part for hint in QUESTION_HINTS):
+            return []
+        if len(part) > 24:
+            return []
+        options.append(part)
+
+    return options if 3 <= len(options) <= len(OPTION_LABELS) else []
+
+
+def _confirm_detected_options(question):
+    options = _extract_options_from_question(question)
+    if not options:
+        return []
+
+    print()
+    print(f"检测到你已在问题中列出 {len(options)} 个选项：")
+    for index, option in enumerate(options):
+        print(f"  {OPTION_LABELS[index]}：{option}")
+    choice = input("是否直接使用这些选项？(Y/n)：").strip().lower()
+    if choice in {"", "y", "yes"}:
+        return options
+    return []
 
 
 def _multi_history_question(question, options):
@@ -130,8 +194,12 @@ def run_multi_decision(prefilled_question=None):
     if not should_proceed:
         return
 
-    count = _ask_option_count()
-    options = _ask_options(count)
+    options = _confirm_detected_options(question)
+    if not options:
+        count = _ask_option_count()
+        if count is None:
+            return
+        options = _ask_options(count)
 
     history_question = _multi_history_question(question, options)
 
