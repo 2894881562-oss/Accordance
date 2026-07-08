@@ -5,6 +5,8 @@
 整合梅花易数体用生克 + 互卦趋势 + 纳甲用神分析。
 """
 
+import re
+
 from core.divination import get_lunar_time
 from core.interpretation import interpret_hexagram
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
@@ -13,6 +15,23 @@ from core.question_history import handle_duplicate_check, record_question
 from config.bagua_data import BAGUA_DATA
 from config.hexagram_data import HEXAGRAM_DATA
 from config.wuxing_rules import WUXING_SHENG, WUXING_KE
+
+
+DECISION_SPLIT_PATTERN = re.compile(r"(.+?)\s*(?:还是|或者|或)\s*(.+)")
+LABELED_OPTIONS_PATTERN = re.compile(
+    r"(?:^|[\s，,；;])A[\.、:：\)]?\s*([^，,；;\n]+).*?"
+    r"(?:^|[\s，,；;])B[\.、:：\)]?\s*([^，,；;\n]+)",
+    re.IGNORECASE,
+)
+LEADING_OPTION_HINTS = (
+    "我应该选择", "我该选择", "应该选择", "该选择",
+    "我应该选", "我该选", "应该选", "该选", "选择", "选",
+)
+TRAILING_OPTION_HINTS = (
+    "哪个更适合", "哪一个更适合", "哪个更好", "哪一个更好",
+    "哪个合适", "哪一个合适", "更适合", "更合适", "更好",
+    "比较好", "合适吗", "好吗",
+)
 
 
 def _sep(char="─", width=62):
@@ -28,6 +47,72 @@ def _text_to_seed(text):
     if not text:
         return 0
     return sum(ord(c) for c in text)
+
+
+def _clean_detected_option(text):
+    option = (text or "").strip(" 　：:，,。.;；？?！!")
+    option = re.sub(r"^(?:选项)?[ABab][\.、:：\)]\s*", "", option).strip()
+    for hint in LEADING_OPTION_HINTS:
+        if option.startswith(hint):
+            option = option[len(hint):].strip()
+            break
+    for hint in TRAILING_OPTION_HINTS:
+        if option.endswith(hint):
+            option = option[:-len(hint)].strip()
+            break
+    return option.strip(" 　：:，,。.;；？?！!")
+
+
+def _extract_options_from_question(question):
+    """从“A方案还是B方案”这类问题文本中识别二选一选项。"""
+    text = (question or "").strip()
+    if not text:
+        return None
+
+    labeled = LABELED_OPTIONS_PATTERN.search(text)
+    if labeled:
+        option_a = _clean_detected_option(labeled.group(1))
+        option_b = _clean_detected_option(labeled.group(2))
+        if option_a and option_b and option_a != option_b:
+            return option_a, option_b
+
+    split = DECISION_SPLIT_PATTERN.search(text)
+    if not split:
+        return None
+
+    option_a = _clean_detected_option(split.group(1))
+    option_b = _clean_detected_option(split.group(2))
+    if not option_a or not option_b or option_a == option_b:
+        return None
+    if len(option_a) > 24 or len(option_b) > 24:
+        return None
+    return option_a, option_b
+
+
+def _confirm_detected_options(question):
+    options = _extract_options_from_question(question)
+    if not options:
+        return None
+
+    option_a, option_b = options
+    print()
+    print("检测到你已在问题中列出两个选项：")
+    print(f"  A：{option_a}")
+    print(f"  B：{option_b}")
+    choice = input("是否直接使用这些选项？(Y/n)：").strip().lower()
+    if choice in {"", "y", "yes"}:
+        return option_a, option_b
+    return None
+
+
+def _ask_option(label, existing=None):
+    existing = set(existing or [])
+    while True:
+        option = input(f"请输入选项{label}：").strip() or f"选项{label}"
+        if option in existing:
+            print(f"选项「{option}」已存在，请输入一个不同的选项。")
+            continue
+        return option
 
 
 def _option_qi_gua(question, option_text, focus_seed=0):
@@ -233,8 +318,12 @@ def run_decision_helper(prefilled_question=None):
     question = (prefilled_question or "").strip()
     if not question:
         question = input("请输入你要决策的问题：").strip() or "未命名问题"
-    option_a = input("请输入选项A：").strip() or "选项A"
-    option_b = input("请输入选项B：").strip() or "选项B"
+    detected_options = _confirm_detected_options(question)
+    if detected_options:
+        option_a, option_b = detected_options
+    else:
+        option_a = _ask_option("A")
+        option_b = _ask_option("B", existing={option_a})
 
     history_question = _decision_history_question(question, option_a, option_b)
     should_proceed, _ = handle_duplicate_check(
