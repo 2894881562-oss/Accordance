@@ -119,18 +119,21 @@ def run_multi_decision(prefilled_question=None):
     question = (prefilled_question or "").strip()
     if not question:
         question = input("请输入你要决策的问题：").strip() or "未命名问题"
+
+    question_key = f"多选最优：{question}"
+    should_proceed, _ = handle_duplicate_check(
+        question_key,
+        "多选最优决策",
+        allow_rephrase=False,
+        match_mode="prefix",
+    )
+    if not should_proceed:
+        return
+
     count = _ask_option_count()
     options = _ask_options(count)
 
     history_question = _multi_history_question(question, options)
-    should_proceed, _ = handle_duplicate_check(
-        history_question,
-        "多选最优决策",
-        allow_rephrase=False,
-        match_mode="exact",
-    )
-    if not should_proceed:
-        return
 
     question_profile = build_question_profile(question, current_method_key="multi_decision")
     print()

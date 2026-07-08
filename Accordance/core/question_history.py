@@ -571,6 +571,34 @@ class QuestionHistory:
 
         return False, None, 0.0, "", 0.0, None
 
+    def check_prefix_duplicate(self, question, module_name):
+        """
+        按模块和规范文本前缀做复问判定。
+
+        适合多选最优这类流程：历史记录包含问题和选项明细，
+        但用户刚输入问题时就应先判断是否重复，不必等选项全部录入。
+        """
+        self._ensure_loaded()
+        normalized_question = _normalize(question)
+        for entry in reversed(self._history):
+            if _entry_module(entry) != module_name:
+                continue
+            prev_question = _entry_question(entry)
+            if not prev_question:
+                continue
+
+            normalized_prev = _normalize(prev_question)
+            if normalized_prev != normalized_question and not normalized_prev.startswith(normalized_question):
+                continue
+
+            prev_ts = _entry_timestamp(entry)
+            days_elapsed = max(0.0, (time.time() - prev_ts) / 86400.0)
+            action, band = _classify_repeat(1.0, days_elapsed)
+            if band:
+                return True, entry, 1.0, action, round(days_elapsed, 1), band
+
+        return False, None, 0.0, "", 0.0, None
+
     def add_question(self, question, module_name, result_summary):
         """记录一次起卦并持久化。"""
         self._ensure_loaded()
@@ -727,6 +755,7 @@ def handle_duplicate_check(question, module_label, allow_rephrase=True, match_mo
             避免只改了问题文本却沿用旧的选项、笔画、出生时间或方位。
         match_mode:
             semantic 使用语义相似度；exact 仅匹配同模块下完全一致的规范问事文本。
+            prefix 匹配同模块下此前规范问事文本是否以当前文本开头。
 
     返回:
         (should_proceed, question)
@@ -734,6 +763,10 @@ def handle_duplicate_check(question, module_label, allow_rephrase=True, match_mo
     history = get_session_history()
     if match_mode == "exact":
         is_dup, matched, sim_score, action, days_ago, band = history.check_exact_duplicate(
+            question, module_label
+        )
+    elif match_mode == "prefix":
+        is_dup, matched, sim_score, action, days_ago, band = history.check_prefix_duplicate(
             question, module_label
         )
     else:
