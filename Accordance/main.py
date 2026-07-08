@@ -15,6 +15,7 @@ from modules.name_divination import run_name_divination
 from modules.daily_fortune import run_daily_fortune
 from modules.item_search import run_item_search
 from modules.decision_helper import run_decision_helper
+from modules.multi_decision import run_multi_decision
 from modules.method_selector import run_method_selector
 from modules.bazi import run_bazi_analysis
 from modules.qimen import run_qimen_analysis
@@ -46,10 +47,11 @@ def main_menu():
     print("4. 当日气运指引（日卦为基，查看当日整体运势基调）")
     print("5. 寻物专项占（八卦方位 + 物品特征推理）")
     print("6. 二选一决策辅助（双卦对比 + 风险分析）")
-    print("7. 四柱八字基础分析（十神/强弱/阶段/格局倾向）")
-    print("8. 奇门运筹分析（方位/时机/格局/裁决/置信度）")
-    print("9. 查看近期起卦记录")
-    print("10. 起卦法选择器（按问题推荐入口）")
+    print("7. 多选最优决策（多案评分 + 最优详解）")
+    print("8. 四柱八字基础分析（十神/强弱/阶段/格局倾向）")
+    print("9. 奇门运筹分析（方位/时机/格局/裁决/置信度）")
+    print("10. 查看近期起卦记录")
+    print("11. 起卦法选择器（按问题推荐入口）")
     print("0. 退出系统")
 
     print_separator()
@@ -89,15 +91,18 @@ def main():
             run_decision_helper()
 
         elif choice == "7":
-            run_bazi_analysis()
+            run_multi_decision()
 
         elif choice == "8":
-            run_qimen_analysis()
+            run_bazi_analysis()
 
         elif choice == "9":
-            show_history()
+            run_qimen_analysis()
 
         elif choice == "10":
+            show_history()
+
+        elif choice == "11":
             run_method_selector()
 
         else:

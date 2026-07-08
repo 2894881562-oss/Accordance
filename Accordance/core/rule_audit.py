@@ -52,6 +52,7 @@ REQUIRED_FOCUS_WIRING = {
     "modules/quick_divination.py": ("三爻快占", ("collect_focus_seed", "focus_seed")),
     "modules/item_search.py": ("寻物专项占", ("collect_focus_seed", "focus_seed")),
     "modules/decision_helper.py": ("二选一决策", ("collect_focus_seed", "focus_seed")),
+    "modules/multi_decision.py": ("多选最优决策", ("collect_focus_seed", "focus_seed")),
     "modules/qimen.py": ("奇门运筹", ("collect_focus_seed", "current=focus_moment")),
 }
 DETERMINISTIC_NO_FOCUS = {
@@ -66,6 +67,7 @@ REQUIRED_HISTORY_WIRING = {
     "modules/name_divination.py": ("姓名起卦", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="exact"')),
     "modules/item_search.py": ("寻物专项占", ("handle_duplicate_check", "record_question", "allow_rephrase=False")),
     "modules/decision_helper.py": ("二选一决策", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="exact"')),
+    "modules/multi_decision.py": ("多选最优决策", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="exact"')),
     "modules/bazi.py": ("四柱八字", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="exact"')),
     "modules/qimen.py": ("奇门运筹", ("handle_duplicate_check", "record_question", "allow_rephrase=False")),
 }
@@ -413,6 +415,7 @@ def audit_method_selector_profiles():
         ("我的手机今天不见了，能找回吗", "item"),
         ("今天整体运势怎么样", "daily"),
         ("A方案还是B方案更适合", "decision"),
+        ("这几个方案哪个最优，帮我从多个选项里选一个", "multi_decision"),
         ("这个公司名适合吗，按笔画看", "name"),
         ("我想看八字四柱和十神", "bazi"),
         ("明天谈判从哪个方位切入更有利", "qimen"),
@@ -702,7 +705,7 @@ def format_rule_audit_report(audit_result=None):
         f"错误：{result['error_count']}；警告：{result['warning_count']}",
     ]
     if not result["issues"]:
-        lines.append("凝神入口、历史记录、姓名笔画、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则和起卦法选择器配置均已通过一致性校验。")
+        lines.append("凝神入口、历史记录、姓名笔画、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则、多选最优和起卦法选择器配置均已通过一致性校验。")
         return "\n".join(lines)
 
     for issue in result["issues"]:

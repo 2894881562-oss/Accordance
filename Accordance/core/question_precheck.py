@@ -16,6 +16,7 @@ METHOD_KEY_BY_LABEL = {
     "当日气运": "daily",
     "寻物专项占": "item",
     "二选一决策": "decision",
+    "多选最优决策": "multi_decision",
     "四柱八字": "bazi",
     "奇门运筹": "qimen",
 }
@@ -63,6 +64,8 @@ def _quality_hints(question, category, method_key):
         hints.append("此问偏短急，若只求眼前方向，三爻快占更轻便。")
     if "还是" in text and method_key != "decision":
         hints.append("若实际是两个方案取舍，二选一决策更贴切。")
+    if any(word in text for word in ["多个方案", "多个选项", "多选", "最优解", "排名", "排序"]) and method_key != "multi_decision":
+        hints.append("若实际是三个及以上方案取舍，多选最优决策更贴切。")
     return hints
 
 

@@ -38,7 +38,7 @@ METHOD_PROFILES = {
         "keywords": ["姓名", "名字", "改名", "起名", "笔画", "公司名", "品牌名", "店名", "艺名"],
     },
     "bazi": {
-        "menu": "7",
+        "menu": "8",
         "name": "四柱八字",
         "fit": "已知公历出生日期和时辰，想看四柱、十神、日主强弱、阶段倾向的问题。",
         "basis": "八字以年、月、日、时四柱为结构，以日干为核心分析其余七字的生克比关系。",
@@ -48,7 +48,7 @@ METHOD_PROFILES = {
         ],
     },
     "qimen": {
-        "menu": "8",
+        "menu": "9",
         "name": "奇门运筹",
         "fit": "已明确行动场景，想看方位、择时、谈判竞争布局与攻守节奏的问题。",
         "basis": "奇门以时间与空间起局，合参九宫、八门、九星、八神和三奇六仪，适合现实运筹而非改动格局。",
@@ -78,6 +78,16 @@ METHOD_PROFILES = {
         "basis": "两案分别起象再比较体用、用神、风险，适合二择一。",
         "keywords": ["二选一", "选哪个", "哪一个", "哪个更", "选择", "取舍", "还是", "对比", "比较", "A", "B"],
     },
+    "multi_decision": {
+        "menu": "7",
+        "name": "多选最优决策",
+        "fit": "三个及以上明确选项之间做评分排序，并只展开最优方案详解的问题。",
+        "basis": "多案分别起象评分，先给全部选项最终分，再仅对最优项展开卦象、用神、风险与结论，避免多卦信息过载。",
+        "keywords": [
+            "多选", "多个选项", "多个方案", "多方案", "多案", "三选一", "四选一", "五选一",
+            "哪个最优", "哪一个最优", "最优解", "最适合", "排名", "排序", "优先级", "从中选一个",
+        ],
+    },
 }
 
 
@@ -89,7 +99,8 @@ NEGATIVE_HINTS = {
     "qimen": "若要看完整前因后果或长期结果，仍宜用六爻详占；奇门只按当前时空给运筹参考，不实现风后奇门式改局。",
     "daily": "若已有明确问题，应改用对应起卦法。",
     "item": "若物品可能已离身或范围很大，寻物专项只能先给搜索启示，宜转六爻详占。",
-    "decision": "若选项不止两个或问题本身尚未厘清，应先整理为明确方案。",
+    "decision": "若选项不止两个，宜改用多选最优决策；若问题本身尚未厘清，应先整理为明确方案。",
+    "multi_decision": "若只有两个选项，二选一决策更精简；若选项尚未成形，应先整理为可比较的具体方案。",
 }
 
 
@@ -107,6 +118,12 @@ QIMEN_TERMS = ["奇门", "遁甲", "八门", "九星", "三奇", "六仪", "方�
 DAILY_TERMS = ["今日", "今天", "当天", "日运", "气运", "运势", "整体", "行事"]
 QUICK_TERMS = ["现在", "马上", "今天", "明天", "短期", "临时", "急", "要不要", "该不该", "能不能", "可不可以", "是否"]
 COMPLEX_TERMS = ["长期", "重大", "复杂", "前因后果", "多方", "结果", "趋势", "风险"]
+MULTI_DECISION_TERMS = [
+    "多选", "多个选项", "多个方案", "多方案", "多案", "三选一", "四选一", "五选一", "六选一",
+    "七选一", "八选一", "九选一", "哪个最优", "哪一个最优", "哪个最好", "哪一个最好",
+    "最优解", "最适合", "排名", "排序", "优先级", "从中选一个", "选一个最优",
+    "几个方案", "几个选项", "这些方案", "这些选项", "这几个方案", "这几个选项",
+]
 
 
 def _contains_any(text, keywords):
@@ -130,6 +147,16 @@ def _looks_like_two_options(text):
     )
 
 
+def _looks_like_multi_options(text):
+    if _has_any(text, MULTI_DECISION_TERMS):
+        return True
+    if re.search(r"(?:[三四五六七八九]|[3-9])\s*选\s*(?:一|1)", text):
+        return True
+    if re.search(r"(?:[3-9]|[三四五六七八九])\s*(?:个|项|种)?\s*(?:方案|选项)", text):
+        return True
+    return False
+
+
 def _build_route_context(text):
     """识别强场景，给选择器排序提供可审的加权依据。"""
     normalized = text.lower()
@@ -139,7 +166,8 @@ def _build_route_context(text):
     item_hit = _has_any(normalized, ITEM_ACTION_TERMS) or (
         "找" in text and _has_any(normalized, ITEM_OBJECT_TERMS)
     )
-    decision_hit = _looks_like_two_options(text)
+    multi_decision_hit = _looks_like_multi_options(text)
+    decision_hit = _looks_like_two_options(text) and not multi_decision_hit
     name_hit = _has_any(normalized, NAME_TERMS)
     bazi_hit = _has_any(normalized, BAZI_TERMS)
     qimen_hit = _has_any(normalized, QIMEN_TERMS)
@@ -162,6 +190,12 @@ def _build_route_context(text):
         boosts["quick"] -= 1
         labels["decision"].append("二选一强场景")
 
+    if multi_decision_hit:
+        boosts["multi_decision"] += 16
+        boosts["decision"] -= 6
+        boosts["quick"] -= 2
+        labels["multi_decision"].append("多选最优强场景")
+
     if name_hit:
         boosts["name"] += 12
         boosts["full"] -= 1
@@ -182,7 +216,7 @@ def _build_route_context(text):
             boosts["full"] += 3
             labels["full"].append("奇门事项仍需六爻看前因后果")
 
-    if daily_hit and not (item_hit or decision_hit or name_hit or bazi_hit or qimen_hit or high_stakes_hit):
+    if daily_hit and not (item_hit or decision_hit or multi_decision_hit or name_hit or bazi_hit or qimen_hit or high_stakes_hit):
         boosts["daily"] += 10
         labels["daily"].append("当日整体基调")
     elif daily_hit:
@@ -197,7 +231,7 @@ def _build_route_context(text):
         boosts["full"] += 7
         labels["full"].append("复杂事项")
 
-    if quick_hit and not high_stakes_hit and not complex_hit and not item_hit and not decision_hit and not name_hit and not bazi_hit and not qimen_hit:
+    if quick_hit and not high_stakes_hit and not complex_hit and not item_hit and not decision_hit and not multi_decision_hit and not name_hit and not bazi_hit and not qimen_hit:
         boosts["quick"] += 6
         labels["quick"].append("短急单点")
 
@@ -211,6 +245,8 @@ def _score_method(text, method_key, route_context=None):
 
     if method_key == "decision" and ("还是" in text or "或者" in text or "选" in text):
         score += 4
+    if method_key == "multi_decision" and any(word in text for word in ["多选", "方案", "选项", "最优", "排名", "排序", "优先级"]):
+        score += 5
     if method_key == "full" and any(word in text for word in ["长期", "重大", "复杂", "前因后果", "风险"]):
         score += 5
     if method_key == "quick" and len(text) <= 18:
