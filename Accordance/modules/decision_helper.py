@@ -318,6 +318,17 @@ def run_decision_helper(prefilled_question=None):
     question = (prefilled_question or "").strip()
     if not question:
         question = input("请输入你要决策的问题：").strip() or "未命名问题"
+
+    question_key = f"二选一：{question}"
+    should_proceed, _ = handle_duplicate_check(
+        question_key,
+        "二选一决策",
+        allow_rephrase=False,
+        match_mode="prefix",
+    )
+    if not should_proceed:
+        return
+
     detected_options = _confirm_detected_options(question)
     if detected_options:
         option_a, option_b = detected_options
@@ -326,14 +337,6 @@ def run_decision_helper(prefilled_question=None):
         option_b = _ask_option("B", existing={option_a})
 
     history_question = _decision_history_question(question, option_a, option_b)
-    should_proceed, _ = handle_duplicate_check(
-        history_question,
-        "二选一决策",
-        allow_rephrase=False,
-        match_mode="exact",
-    )
-    if not should_proceed:
-        return
 
     question_profile = build_question_profile(question, current_method_key="decision")
     print()
