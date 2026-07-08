@@ -39,12 +39,19 @@ def run_qimen_analysis(prefilled_topic=""):
     print("不实现动漫设定中的“风后奇门”拨盘改局能力。")
 
     topic = prefilled_topic or input("所谋之事（如谈判、竞争、出行、项目推进）：").strip()
+    topic_key = f"奇门：{topic or '未命名事项'}"
+    should_proceed, _ = handle_duplicate_check(
+        topic_key,
+        "奇门运筹",
+        allow_rephrase=False,
+        match_mode="prefix",
+    )
+    if not should_proceed:
+        return
+
     direction = input("当前或计划采用的方位（可选，如东、东南、西北）：").strip()
     mode = input("场景类型（可选：谈判/竞争/财务/出行/事业/学习/健康/综合）：").strip()
     history_question = _qimen_history_question(topic, direction, mode)
-    should_proceed, _ = handle_duplicate_check(history_question, "奇门运筹", allow_rephrase=False)
-    if not should_proceed:
-        return
 
     focus_info = collect_focus_seed("请静心凝神，定住所谋之事。准备好后按回车定局...")
     focus_moment = datetime.datetime.now()
