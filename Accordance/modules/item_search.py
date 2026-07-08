@@ -106,6 +106,16 @@ def run_item_search():
     _sep("═")
 
     item_name = input("请输入要寻找的物品名称：").strip() or "目标物品"
+    item_question_key = f"寻物：{item_name}"
+    should_proceed, _ = handle_duplicate_check(
+        item_question_key,
+        "寻物专项占",
+        allow_rephrase=False,
+        match_mode="prefix",
+    )
+    if not should_proceed:
+        return
+
     last_place = input("最后一次见到的大概位置（可回车跳过）：").strip() or "未提供"
     item_feature = input("物品主要特征（可回车跳过）：").strip() or "未提供"
     search_scope = input("搜索范围：1小范围/2大范围或不确定（默认1）：").strip() or "1"
@@ -116,9 +126,6 @@ def run_item_search():
         f"寻物：{item_name}｜最后位置：{last_place}｜"
         f"特征：{item_feature}｜范围：{search_scope}"
     )
-    should_proceed, _ = handle_duplicate_check(history_question, "寻物专项占", allow_rephrase=False)
-    if not should_proceed:
-        return
 
     print("\n请静心回想最后一次见到该物品的位置。")
     print("专注于该物品的形状、颜色、用途、最后一次使用场景。")

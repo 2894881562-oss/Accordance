@@ -65,7 +65,7 @@ REQUIRED_HISTORY_WIRING = {
     "modules/full_divination.py": ("六爻详占", ("handle_duplicate_check", "record_question")),
     "modules/quick_divination.py": ("三爻快占", ("handle_duplicate_check", "record_question")),
     "modules/name_divination.py": ("姓名起卦", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="exact"')),
-    "modules/item_search.py": ("寻物专项占", ("handle_duplicate_check", "record_question", "allow_rephrase=False")),
+    "modules/item_search.py": ("寻物专项占", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="prefix"')),
     "modules/decision_helper.py": ("二选一决策", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="prefix"')),
     "modules/multi_decision.py": ("多选最优决策", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="prefix"')),
     "modules/bazi.py": ("四柱八字", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="exact"')),
