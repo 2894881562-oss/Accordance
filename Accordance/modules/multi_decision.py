@@ -14,6 +14,7 @@ OPTION_LABELS = list("ABCDEFGHI")
 WEEKDAY_TERMS = ("周一", "周二", "周三", "周四", "周五", "周六", "周日", "周天")
 LIST_SEPARATORS = r"[、,，/／|｜;；\n]+"
 QUESTION_HINTS = ("哪个", "哪一个", "哪天", "如何", "怎么", "是否", "要不要", "适合", "最优", "选择", "帮我")
+WEEKDAY_PATTERN = re.compile("|".join(WEEKDAY_TERMS))
 
 
 def _sep(char="─", width=62):
@@ -43,8 +44,13 @@ def _ask_options(count):
     options = []
     for index in range(count):
         label = OPTION_LABELS[index]
-        option = input(f"请输入选项{label}：").strip()
-        options.append(option or f"选项{label}")
+        while True:
+            option = input(f"请输入选项{label}：").strip() or f"选项{label}"
+            if option in options:
+                print(f"选项「{option}」已存在，请输入一个不同的选项。")
+                continue
+            options.append(option)
+            break
     return options
 
 
@@ -57,8 +63,9 @@ def _clean_detected_option(text):
 
 def _extract_weekday_options(text):
     options = []
-    for term in WEEKDAY_TERMS:
-        if term in text and term not in options:
+    for match in WEEKDAY_PATTERN.finditer(text):
+        term = match.group(0)
+        if term not in options:
             options.append(term)
     return options if 3 <= len(options) <= len(OPTION_LABELS) else []
 
