@@ -119,6 +119,8 @@ QIMEN_TERMS = ["奇门", "遁甲", "八门", "九星", "三奇", "六仪", "方�
 DAILY_TERMS = ["今日", "今天", "当天", "日运", "气运", "运势", "整体", "行事"]
 QUICK_TERMS = ["现在", "马上", "今天", "明天", "短期", "临时", "急", "要不要", "该不该", "能不能", "可不可以", "是否"]
 COMPLEX_TERMS = ["长期", "重大", "复杂", "前因后果", "多方", "结果", "趋势", "风险"]
+WEEKDAY_TERMS = ("周一", "周二", "周三", "周四", "周五", "周六", "周日", "周天")
+LIST_SEPARATORS = r"[、,，/／|｜;；\n]+"
 MULTI_DECISION_TERMS = [
     "多选", "多个选项", "多个方案", "多方案", "多案", "三选一", "四选一", "五选一", "六选一",
     "七选一", "八选一", "九选一", "哪个最优", "哪一个最优", "哪个最好", "哪一个最好",
@@ -154,6 +156,13 @@ def _looks_like_multi_options(text):
         return True
     if "多" in text and any(word in text for word in ["选择", "取舍", "最优", "排序", "排名", "优先级"]):
         return True
+    if sum(1 for term in WEEKDAY_TERMS if term in text) >= 3:
+        return True
+    if re.search(LIST_SEPARATORS, text):
+        parts = [part.strip(" 　：:，,。.;；") for part in re.split(LIST_SEPARATORS, text)]
+        options = [part for part in parts if part]
+        if 3 <= len(options) <= 9 and all(len(option) <= 24 for option in options):
+            return True
     if re.search(r"(?:[三四五六七八九]|[3-9])\s*选\s*(?:一|1)", text):
         return True
     if re.search(r"(?:[3-9]|[三四五六七八九])\s*(?:个|项|种)?\s*(?:方案|选项)", text):

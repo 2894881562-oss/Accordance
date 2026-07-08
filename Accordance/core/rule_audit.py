@@ -417,6 +417,7 @@ def audit_method_selector_profiles():
         ("A方案还是B方案更适合", "decision"),
         ("这几个方案哪个最优，帮我从多个选项里选一个", "multi_decision"),
         ("多问题选择", "multi_decision"),
+        ("周一、周二、周三、周五", "multi_decision"),
         ("这个公司名适合吗，按笔画看", "name"),
         ("我想看八字四柱和十神", "bazi"),
         ("明天谈判从哪个方位切入更有利", "qimen"),

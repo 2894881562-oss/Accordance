@@ -35,6 +35,7 @@ CATEGORY_CONTEXT_HINTS = {
     "出行行人": ["出发/返回时间", "交通方式", "天气路况"],
     "子女解忧": ["对象年龄/身份", "现实症状或诉求", "当前处理方式"],
     "同辈竞争": ["双方权责", "利益分配", "沟通记录"],
+    "多案取舍": ["选项边界是否一致", "现实成本与风险", "执行时间与资源条件"],
 }
 
 
@@ -77,6 +78,12 @@ def build_question_profile(question, current_method_key="full"):
     category = inference.get("category", "泛问")
     primary = inference.get("primary", "世爻")
     secondary = inference.get("secondary", "")
+    reason = inference.get("reason", "")
+    if current_method_key == "multi_decision" and category in {"泛问", "未说明"}:
+        category = "多案取舍"
+        primary = "世爻"
+        secondary = "各选项卦象"
+        reason = "多选最优以世爻为决策主体，各选项分别起象评分，重点比较选项承载力、风险与现实可执行性。"
     time_scope = _detect_time_scope(question)
     quality_hints = _quality_hints(question, category, current_method_key)
 
@@ -89,7 +96,7 @@ def build_question_profile(question, current_method_key="full"):
         "category": category,
         "primary_yongshen": primary,
         "secondary_yongshen": secondary,
-        "reason": inference.get("reason", ""),
+        "reason": reason,
         "keywords": inference.get("keywords", []),
         "time_scope": time_scope,
         "context_hints": context_hints,

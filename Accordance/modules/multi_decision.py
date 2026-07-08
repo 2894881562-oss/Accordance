@@ -110,6 +110,11 @@ def _multi_history_question(question, options):
     return f"多选最优：{question}｜{option_text}"
 
 
+def _profile_question(question, options):
+    option_text = "、".join(options)
+    return f"多选最优取舍：从{option_text}中选择最合适的一项。原问：{question}"
+
+
 def _score_options(question, options, focus_seed):
     scored = []
     for index, option in enumerate(options):
@@ -203,7 +208,7 @@ def run_multi_decision(prefilled_question=None):
 
     history_question = _multi_history_question(question, options)
 
-    question_profile = build_question_profile(question, current_method_key="multi_decision")
+    question_profile = build_question_profile(_profile_question(question, options), current_method_key="multi_decision")
     print()
     print(format_question_profile(question_profile))
 
