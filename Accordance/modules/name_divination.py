@@ -45,6 +45,10 @@ def _format_stroke_details(analysis):
     return " + ".join(f"{item['char']}{item['stroke']}画" for item in analysis["details"])
 
 
+def _name_history_prefix(xing, ming):
+    return f"姓名起卦：{xing}{ming}"
+
+
 def _name_history_question(xing, ming, xing_stroke, ming_stroke):
     return f"姓名起卦：{xing}{ming}｜姓氏{xing_stroke}画｜名字{ming_stroke}画"
 
@@ -58,20 +62,20 @@ def run_name_divination():
 
     xing = input("请输入姓氏：").strip() or "未命名姓氏"
     ming = input("请输入名字：").strip() or "未命名名字"
+    should_proceed, _ = handle_duplicate_check(
+        _name_history_prefix(xing, ming),
+        "姓名起卦",
+        allow_rephrase=False,
+        match_mode="prefix",
+    )
+    if not should_proceed:
+        return
+
     xing_analysis = _fill_missing_strokes("姓氏", analyze_text_strokes(xing))
     ming_analysis = _fill_missing_strokes("名字", analyze_text_strokes(ming))
     xing_stroke = xing_analysis["total"]
     ming_stroke = ming_analysis["total"]
-
     history_question = _name_history_question(xing, ming, xing_stroke, ming_stroke)
-    should_proceed, _ = handle_duplicate_check(
-        history_question,
-        "姓名起卦",
-        allow_rephrase=False,
-        match_mode="exact",
-    )
-    if not should_proceed:
-        return
 
     print(
         f"自动识别笔画：姓氏「{xing}」{xing_stroke}画"
