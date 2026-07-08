@@ -19,7 +19,7 @@ from modules.multi_decision import run_multi_decision
 from modules.method_selector import run_method_selector
 from modules.bazi import run_bazi_analysis
 from modules.qimen import run_qimen_analysis
-from core.question_history import show_history
+from core.question_history import clear_history, show_history
 
 
 def print_separator():
@@ -51,7 +51,8 @@ def main_menu():
     print("8. 四柱八字基础分析（十神/强弱/阶段/格局倾向）")
     print("9. 奇门运筹分析（方位/时机/格局/裁决/置信度）")
     print("10. 查看近期起卦记录")
-    print("11. 起卦法选择器（按问题推荐入口）")
+    print("11. 清除历史询问记录（谨慎操作）")
+    print("12. 起卦法选择器（按问题推荐入口）")
     print("0. 退出系统")
 
     print_separator()
@@ -103,6 +104,9 @@ def main():
             show_history()
 
         elif choice == "11":
+            clear_history()
+
+        elif choice == "12":
             run_method_selector()
 
         else:
@@ -112,6 +116,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
 

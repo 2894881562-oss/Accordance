@@ -934,3 +934,33 @@ def show_history():
         print(f"  {i}. [{_entry_module(entry)}] {_entry_question(entry)}")
         print(f"     └ {dt}  → {_entry_result(entry)}")
     print(_sep())
+
+
+def clear_history():
+    """在菜单层清空起卦历史，带显式确认。"""
+    history = get_session_history()
+    if getattr(history, "_disabled", False):
+        print("历史记录已禁用（ACCORDANCE_HISTORY_DISABLED），无需清除。")
+        return
+
+    stats = history.stats()
+    if stats["total_questions"] <= 0:
+        print("暂无起卦记录，无需清除。")
+        return
+
+    print()
+    print(_sep())
+    print("【清除历史询问记录】")
+    print(f"  当前共有 {stats['total_questions']} 条记录。")
+    print(f"  存储位置：{stats['file']}")
+    print("  此操作会清空历史记录内容，后续复问提醒将无法参考这些旧记录。")
+    print("  如需继续，请输入：清空历史")
+    confirm = input("  → ").strip()
+    if confirm != "清空历史":
+        print("已取消清除历史。")
+        print(_sep())
+        return
+
+    history.clear()
+    print("历史询问记录已清空。")
+    print(_sep())
