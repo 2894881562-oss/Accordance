@@ -86,6 +86,7 @@ METHOD_PROFILES = {
         "keywords": [
             "多选", "多个选项", "多个方案", "多方案", "多案", "三选一", "四选一", "五选一",
             "哪个最优", "哪一个最优", "最优解", "最适合", "排名", "排序", "优先级", "从中选一个",
+            "多项选择", "多问题选择", "多项问题", "多种选择",
         ],
     },
 }
@@ -123,6 +124,7 @@ MULTI_DECISION_TERMS = [
     "七选一", "八选一", "九选一", "哪个最优", "哪一个最优", "哪个最好", "哪一个最好",
     "最优解", "最适合", "排名", "排序", "优先级", "从中选一个", "选一个最优",
     "几个方案", "几个选项", "这些方案", "这些选项", "这几个方案", "这几个选项",
+    "多项选择", "多问题选择", "多项问题", "多种选择", "多个问题选择",
 ]
 
 
@@ -149,6 +151,8 @@ def _looks_like_two_options(text):
 
 def _looks_like_multi_options(text):
     if _has_any(text, MULTI_DECISION_TERMS):
+        return True
+    if "多" in text and any(word in text for word in ["选择", "取舍", "最优", "排序", "排名", "优先级"]):
         return True
     if re.search(r"(?:[三四五六七八九]|[3-9])\s*选\s*(?:一|1)", text):
         return True
