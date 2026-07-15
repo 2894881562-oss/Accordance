@@ -219,6 +219,25 @@ def _extract_semantic_tokens(text):
     return {token for token in tokens if token and token not in STOP_CHARS}
 
 
+GENERIC_QUESTION_PHRASES = (
+    "什么时候", "可不可以", "值不值得", "怎么样", "怎么办",
+    "会不会", "能不能", "好不好", "行不行", "该不该", "要不要", "有没有",
+    "哪一个", "如何", "怎样", "怎么", "是否", "能否", "可否",
+    "哪里", "哪儿", "哪个", "何时", "什么", "通过", "成功", "顺利",
+)
+ANCHOR_CONNECTOR_CHARS = set("和跟与同在对向")
+
+
+def _extract_subject_anchor(text):
+    """提取问类之外的对象、地点、时间或条件锚点。"""
+    anchor = _expand_with_synonyms(_normalize(text))
+    anchor = re.sub(r"「[^」]+」", "", anchor)
+    for phrase in GENERIC_QUESTION_PHRASES:
+        anchor = anchor.replace(phrase, "")
+    ignored = STOP_CHARS | ANCHOR_CONNECTOR_CHARS
+    return "".join(char for char in anchor if char not in ignored)
+
+
 # ═══════════════════════════════════════════════════════════
 # 4. 相似度计算
 # ═══════════════════════════════════════════════════════════
@@ -274,9 +293,10 @@ def _question_similarity(text1, text2):
         return 1.0
 
     # 策略2：子串包含
+    substring_score = 0.0
     if len(n1) >= 4 and len(n2) >= 4:
         if n1 in n2 or n2 in n1:
-            return 0.85
+            substring_score = 0.85
 
     # 策略3：同义词归一化后的二元 Jaccard（权重最高）
     syn1 = _expand_with_synonyms(n1)
@@ -302,11 +322,20 @@ def _question_similarity(text1, text2):
 
     # 综合：取加权最大值
     final = max(
+        substring_score,
         syn_score,
         core_score * 0.95,
         synonym_overlap * 0.82,
         raw_score * 0.7,
     )
+
+    # 问类相同但对象、地点、时间或新条件明显不同，应按新问处理。
+    anchor1 = _extract_subject_anchor(n1)
+    anchor2 = _extract_subject_anchor(n2)
+    if anchor1 and anchor2:
+        anchor_score = _jaccard(set(anchor1), set(anchor2))
+        if anchor_score < 2 / 3:
+            final = min(final, SIMILARITY_BANDS[-1]["min_score"] - 0.01)
 
     return min(1.0, final)
 

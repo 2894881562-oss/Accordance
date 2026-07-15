@@ -27,6 +27,22 @@ class QuestionHistoryTests(unittest.TestCase):
             0.78,
         )
         self.assertLess(_question_similarity("钥匙在哪里", "手机在哪里"), 0.62)
+        self.assertLess(
+            _question_similarity("张三工作发展如何", "李四工作发展如何"),
+            0.62,
+        )
+        self.assertLess(
+            _question_similarity("甲公司面试能否通过", "乙公司面试能否通过"),
+            0.62,
+        )
+        self.assertGreaterEqual(
+            _question_similarity("张三工作发展如何", "张三事业前景怎样"),
+            0.78,
+        )
+        self.assertGreaterEqual(
+            _question_similarity("未来三个月项目如何", "项目未来三个月如何"),
+            0.78,
+        )
 
     def test_context_does_not_dilute_duplicate_matching(self):
         history = QuestionHistory(history_file="unused-history.json", disabled=False)
