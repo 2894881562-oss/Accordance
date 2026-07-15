@@ -3,6 +3,7 @@
 
 import datetime
 
+from core.cli_input import ask_choice, ask_text
 from core.qimen import analyze_qimen, format_qimen_report
 from core.qi_context import collect_focus_seed
 from core.question_history import handle_duplicate_check, record_question
@@ -38,8 +39,13 @@ def run_qimen_analysis(prefilled_topic=""):
     print("结果只作方位、时机、格局与遁甲护核的运筹参考。")
     print("不实现动漫设定中的“风后奇门”拨盘改局能力。")
 
-    topic = prefilled_topic or input("所谋之事（如谈判、竞争、出行、项目推进）：").strip()
-    topic_key = f"奇门：{topic or '未命名事项'}"
+    topic = ask_text(
+        "所谋之事（如谈判、竞争、出行、项目推进）：",
+        "所谋之事",
+        200,
+        initial=prefilled_topic or None,
+    )
+    topic_key = f"奇门：{topic}"
     should_proceed, _ = handle_duplicate_check(
         topic_key,
         "奇门运筹",
@@ -49,8 +55,18 @@ def run_qimen_analysis(prefilled_topic=""):
     if not should_proceed:
         return
 
-    direction = input("当前或计划采用的方位（可选，如东、东南、西北）：").strip()
-    mode = input("场景类型（可选：谈判/竞争/财务/出行/事业/学习/健康/综合）：").strip()
+    direction = ask_text(
+        "当前或计划采用的方位（可选，如东、东南、西北）：",
+        "方位",
+        20,
+        required=False,
+    )
+    mode = ask_choice(
+        "场景类型（可选：谈判/竞争/财务/出行/事业/学习/健康/综合）：",
+        "场景类型",
+        ("谈判", "竞争", "财务", "出行", "事业", "学习", "健康", "综合"),
+        default="综合",
+    )
     history_question = _qimen_history_question(topic, direction, mode)
 
     focus_info = collect_focus_seed("请静心凝神，定住所谋之事。准备好后按回车定局...")

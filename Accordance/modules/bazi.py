@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """八字命理 CLI。"""
 
+from core.cli_input import ask_choice
 from core.bazi import analyze_bazi_birth, format_bazi_report, parse_birth_datetime
 from core.question_history import handle_duplicate_check, record_question
 
@@ -68,7 +69,12 @@ def run_bazi_analysis():
     birth_date = _ask_birth_date("公历出生日期（YYYY-MM-DD，可用 2026-3-1）：")
     birth_hour = _ask_int("出生小时（0-23）：", min_value=0, max_value=23)
     birth_minute = _ask_int("出生分钟（0-59，可回车默认0）：", 0, min_value=0, max_value=59)
-    gender = input("性别（可选，男/女/不填）：").strip()
+    gender = ask_choice(
+        "性别（可选，男/女/不填）：",
+        "性别",
+        ("男", "女"),
+        default="",
+    )
 
     history_question = _bazi_history_question(birth_date, birth_hour, birth_minute, gender)
     should_proceed, _ = handle_duplicate_check(

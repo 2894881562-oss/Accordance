@@ -7,6 +7,7 @@
 
 import re
 
+from core.cli_input import ask_text
 from core.divination import get_lunar_time
 from core.interpretation import interpret_hexagram
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
@@ -73,7 +74,7 @@ def _extract_options_from_question(question):
     if labeled:
         option_a = _clean_detected_option(labeled.group(1))
         option_b = _clean_detected_option(labeled.group(2))
-        if option_a and option_b and option_a != option_b:
+        if option_a and option_b and option_a.casefold() != option_b.casefold():
             return option_a, option_b
 
     split = DECISION_SPLIT_PATTERN.search(text)
@@ -82,7 +83,7 @@ def _extract_options_from_question(question):
 
     option_a = _clean_detected_option(split.group(1))
     option_b = _clean_detected_option(split.group(2))
-    if not option_a or not option_b or option_a == option_b:
+    if not option_a or not option_b or option_a.casefold() == option_b.casefold():
         return None
     if len(option_a) > 24 or len(option_b) > 24:
         return None
@@ -106,10 +107,10 @@ def _confirm_detected_options(question):
 
 
 def _ask_option(label, existing=None):
-    existing = set(existing or [])
+    existing = {option.casefold() for option in (existing or [])}
     while True:
-        option = input(f"请输入选项{label}：").strip() or f"选项{label}"
-        if option in existing:
+        option = ask_text(f"请输入选项{label}：", f"选项 {label}", 120)
+        if option.casefold() in existing:
             print(f"选项「{option}」已存在，请输入一个不同的选项。")
             continue
         return option
@@ -315,9 +316,12 @@ def run_decision_helper(prefilled_question=None):
     print("  二选一决策辅助 · 梅花体用 + 纳甲用神 + 风险分析")
     _sep("═")
 
-    question = (prefilled_question or "").strip()
-    if not question:
-        question = input("请输入你要决策的问题：").strip() or "未命名问题"
+    question = ask_text(
+        "请输入你要决策的问题：",
+        "决策问题",
+        200,
+        initial=prefilled_question,
+    )
 
     question_key = f"二选一：{question}"
     should_proceed, _ = handle_duplicate_check(

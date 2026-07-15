@@ -6,6 +6,7 @@
 """
 
 from core.divination import dynamic_time_qi_gua
+from core.cli_input import ask_text
 from core.interpretation import interpret_hexagram
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
 from core.question_precheck import build_question_profile, format_question_profile
@@ -23,11 +24,12 @@ def run_full_divination(prefilled_question=None):
     print("  六爻详占 · 京房纳甲筮法 + 梅花易数体用")
     _sep("═")
 
-    question = (prefilled_question or "").strip()
-    if not question:
-        question = input("请输入你所问之事：").strip()
-    if not question:
-        question = "未命名问题"
+    question = ask_text(
+        "请输入你所问之事：",
+        "所问之事",
+        200,
+        initial=prefilled_question,
+    )
 
     should_proceed, question = handle_duplicate_check(question, "六爻详占")
     if not should_proceed:
@@ -37,7 +39,12 @@ def run_full_divination(prefilled_question=None):
     print()
     print(format_question_profile(question_profile))
 
-    external_omen = input("若有外应请输入，无则回车：").strip()
+    external_omen = ask_text(
+        "若有外应请输入，无则回车：",
+        "外应",
+        160,
+        required=False,
+    )
     focus_info = collect_focus_seed("请静心凝神，专注于所问之事。准备好后按回车起卦...")
 
     hexagram_info = dynamic_time_qi_gua(

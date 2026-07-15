@@ -3,6 +3,7 @@
 
 import re
 
+from core.cli_input import ask_text
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
 from core.question_history import handle_duplicate_check, record_question
 from core.question_precheck import build_question_profile, format_question_profile
@@ -42,14 +43,17 @@ def _ask_option_count():
 
 def _ask_options(count):
     options = []
+    option_keys = set()
     for index in range(count):
         label = OPTION_LABELS[index]
         while True:
-            option = input(f"请输入选项{label}：").strip() or f"选项{label}"
-            if option in options:
+            option = ask_text(f"请输入选项{label}：", f"选项 {label}", 120)
+            option_key = option.casefold()
+            if option_key in option_keys:
                 print(f"选项「{option}」已存在，请输入一个不同的选项。")
                 continue
             options.append(option)
+            option_keys.add(option_key)
             break
     return options
 
@@ -85,14 +89,17 @@ def _extract_options_from_question(question):
 
     parts = [_clean_detected_option(part) for part in re.split(LIST_SEPARATORS, text)]
     options = []
+    option_keys = set()
     for part in parts:
-        if not part or part in options:
+        part_key = part.casefold()
+        if not part or part_key in option_keys:
             continue
         if any(hint in part for hint in QUESTION_HINTS):
             return []
         if len(part) > 24:
             return []
         options.append(part)
+        option_keys.add(part_key)
 
     return options if 3 <= len(options) <= len(OPTION_LABELS) else []
 
@@ -101,14 +108,17 @@ def parse_multi_options_text(text):
     """解析 Web/API 提交的多选文本，每行或常见分隔符代表一个选项。"""
     parts = [_clean_detected_option(part) for part in re.split(LIST_SEPARATORS, (text or "").strip())]
     options = []
+    option_keys = set()
     for option in parts:
         if not option:
             continue
         if len(option) > 120:
             raise ValueError("每个选项最多 120 个字符")
-        if option in options:
+        option_key = option.casefold()
+        if option_key in option_keys:
             raise ValueError(f"选项「{option}」重复，请保留唯一选项")
         options.append(option)
+        option_keys.add(option_key)
 
     if len(options) < 3:
         raise ValueError("多选最优至少需要 3 个选项；两个选项请使用二选一决策")
@@ -217,9 +227,12 @@ def run_multi_decision(prefilled_question=None):
     print("  多选最优决策 · 多案评分 + 最优详解")
     _sep("═")
 
-    question = (prefilled_question or "").strip()
-    if not question:
-        question = input("请输入你要决策的问题：").strip() or "未命名问题"
+    question = ask_text(
+        "请输入你要决策的问题：",
+        "决策问题",
+        200,
+        initial=prefilled_question,
+    )
 
     question_key = f"多选最优：{question}"
     should_proceed, _ = handle_duplicate_check(

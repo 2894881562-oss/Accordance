@@ -162,6 +162,21 @@ REQUIRED_WEB_NAME_STROKE_WIRING = {
         "系统优先按内置康熙/Unihan 数据自动合计",
     ),
 }
+REQUIRED_CLI_INPUT_WIRING = {
+    "core/cli_input.py": (
+        "CLI 输入助手",
+        ("def ask_text(", "def ask_choice(", "不能为空", "不能超过", "输入无效"),
+    ),
+    "modules/full_divination.py": ("六爻详占", ("ask_text", '"所问之事",', '"外应",')),
+    "modules/quick_divination.py": ("三爻快占", ("ask_text", '"所问之事",', '"外应",')),
+    "modules/name_divination.py": ("姓名起卦", ("ask_text", '"姓氏", 24', '"名字", 24')),
+    "modules/item_search.py": ("寻物专项占", ("ask_text", "ask_choice", '("1", "2")')),
+    "modules/decision_helper.py": ("二选一决策", ("ask_text", "casefold()")),
+    "modules/multi_decision.py": ("多选最优决策", ("ask_text", "option_keys", "casefold()")),
+    "modules/bazi.py": ("四柱八字", ("ask_choice", '("男", "女")')),
+    "modules/qimen.py": ("奇门运筹", ("ask_text", "ask_choice", 'default="综合"')),
+    "modules/method_selector.py": ("起卦法选择器", ("ask_text", '"所问之事", 200')),
+}
 REQUIRED_DEPLOYMENT_WIRING = {
     "Dockerfile": (
         "USER accordance",
@@ -362,6 +377,27 @@ def audit_web_request_wiring():
             "详细分析应默认收起以保持结论优先",
             "web/templates/partials/result.html",
         ))
+    return issues
+
+
+def audit_cli_input_wiring():
+    """校验 CLI 与 Web 共用的必填、长度和枚举边界。"""
+    issues = []
+    project_root = Path(__file__).resolve().parents[1]
+    for filename, (feature_name, required_tokens) in REQUIRED_CLI_INPUT_WIRING.items():
+        path = project_root / filename
+        if not path.exists():
+            issues.append(_issue("error", "CLI 输入", f"{feature_name}文件缺失", filename))
+            continue
+        text = path.read_text(encoding="utf-8")
+        missing = [token for token in required_tokens if token not in text]
+        if missing:
+            issues.append(_issue(
+                "error",
+                "CLI 输入",
+                f"{feature_name}缺少统一输入校验",
+                f"{filename} missing={missing}",
+            ))
     return issues
 
 
@@ -1099,6 +1135,7 @@ def run_rule_audit():
     checks = [
         ("凝神入口", audit_focus_seed_wiring),
         ("Web 请求", audit_web_request_wiring),
+        ("CLI 输入", audit_cli_input_wiring),
         ("部署入口", audit_deployment_wiring),
         ("历史记录", audit_history_wiring),
         ("姓名笔画", audit_name_stroke_data),
@@ -1135,7 +1172,7 @@ def format_rule_audit_report(audit_result=None):
         f"错误：{result['error_count']}；警告：{result['warning_count']}",
     ]
     if not result["issues"]:
-        lines.append("凝神入口、Web 请求、部署入口、历史记录、姓名笔画、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则、多选最优和起卦法选择器配置均已通过一致性校验。")
+        lines.append("凝神入口、Web 请求、CLI 输入、部署入口、历史记录、姓名笔画、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则、多选最优和起卦法选择器配置均已通过一致性校验。")
         return "\n".join(lines)
 
     for issue in result["issues"]:

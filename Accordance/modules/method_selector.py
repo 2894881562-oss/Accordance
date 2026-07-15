@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """起卦法选择器 CLI。"""
 
+from core.cli_input import ask_text
 from core.method_selector import format_method_recommendation
 
 
@@ -45,7 +46,7 @@ def run_method_selector():
     print("  起卦法选择器")
     _sep("═")
 
-    question = input("请简述你要问的事：").strip()
+    question = ask_text("请简述你要问的事：", "所问之事", 200)
     text, ranked = format_method_recommendation(question)
     print()
     print(text)

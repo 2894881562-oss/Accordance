@@ -2,6 +2,7 @@
 """姓名起卦模块。笔画数建议使用康熙字典笔画；使用六爻纳甲体系解卦。"""
 
 from core.divination import name_qi_gua
+from core.cli_input import ask_text
 from core.interpretation import interpret_hexagram
 from core.qi_context import get_accurate_day_ganzhi
 from core.question_history import handle_duplicate_check, record_question
@@ -17,11 +18,11 @@ def _input_positive_int(prompt):
         value = input(prompt).strip()
         try:
             num = int(value)
-            if num > 0:
+            if 0 < num <= 999:
                 return num
         except ValueError:
             pass
-        print("输入无效，请输入正整数笔画数。")
+        print("输入无效，请输入 1 到 999 之间的正整数笔画数。")
 
 
 def _fill_missing_strokes(label, analysis):
@@ -60,8 +61,8 @@ def run_name_divination():
     print("  姓名起卦 · 六爻纳甲体系解卦")
     _sep("═")
 
-    xing = input("请输入姓氏：").strip() or "未命名姓氏"
-    ming = input("请输入名字：").strip() or "未命名名字"
+    xing = ask_text("请输入姓氏：", "姓氏", 24)
+    ming = ask_text("请输入名字：", "名字", 24)
     should_proceed, _ = handle_duplicate_check(
         _name_history_prefix(xing, ming),
         "姓名起卦",

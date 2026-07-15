@@ -2,6 +2,7 @@
 """寻物专项占模块。三爻起卦 + 八卦空间位置专项提示 + 物品特征推理。"""
 
 from core.divination import dynamic_three_yao_quick_divination
+from core.cli_input import ask_choice, ask_text
 from core.interpretation import interpret_three_yao
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
 from core.question_precheck import build_question_profile, format_question_profile
@@ -124,7 +125,7 @@ def run_item_search():
     print("  寻物专项占")
     _sep("═")
 
-    item_name = input("请输入要寻找的物品名称：").strip() or "目标物品"
+    item_name = ask_text("请输入要寻找的物品名称：", "物品名称", 80)
     item_question_key = f"寻物：{item_name}"
     should_proceed, _ = handle_duplicate_check(
         item_question_key,
@@ -135,10 +136,32 @@ def run_item_search():
     if not should_proceed:
         return
 
-    last_place = input("最后一次见到的大概位置（可回车跳过）：").strip() or "未提供"
-    item_feature = input("物品主要特征（可回车跳过）：").strip() or "未提供"
-    search_scope = input("搜索范围：1小范围/2大范围或不确定（默认1）：").strip() or "1"
-    external_omen = input("若有外应请输入，无则回车：").strip()
+    last_place = ask_text(
+        "最后一次见到的大概位置（可回车跳过）：",
+        "最后位置",
+        120,
+        required=False,
+        default="未提供",
+    )
+    item_feature = ask_text(
+        "物品主要特征（可回车跳过）：",
+        "物品特征",
+        120,
+        required=False,
+        default="未提供",
+    )
+    search_scope = ask_choice(
+        "搜索范围：1小范围/2大范围或不确定（默认1）：",
+        "搜索范围",
+        ("1", "2"),
+        default="1",
+    )
+    external_omen = ask_text(
+        "若有外应请输入，无则回车：",
+        "外应",
+        160,
+        required=False,
+    )
 
     question_text = f"寻找{item_name}"
     history_question = _item_history_question(
