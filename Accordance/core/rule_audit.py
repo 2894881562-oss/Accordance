@@ -61,7 +61,10 @@ REQUIRED_WEB_FOCUS_WIRING = {
         "Web 二选一",
         ('{% if key in ["full", "quick", "item", "decision", "multi_decision", "qimen"] %}', "data-focus-seed", "data-focus-ritual"),
     ),
-    "web/static/app.js": ("Web 凝神交互", ("completeRunningFocus", "focus_seed")),
+    "web/static/app.js": (
+        "Web 凝神交互",
+        ("completeRunningFocus", "focus_seed", "resetFocus", "invalidateFocusForEdit"),
+    ),
     "web/services.py": (
         "Web 二选一与奇门",
         (
@@ -167,6 +170,21 @@ def audit_focus_seed_wiring():
                 f"{feature_name}缺少凝神承接",
                 f"{filename} missing={missing_tokens}",
             ))
+
+        if filename == "web/templates/feature.html":
+            focus_position = text.find("data-focus-ritual")
+            last_business_field = max(
+                text.find('name="options_text"'),
+                text.find('name="qimen_mode"'),
+                text.find('name="gender"'),
+            )
+            if focus_position < last_business_field:
+                issues.append(_issue(
+                    "error",
+                    "凝神入口",
+                    "Web 凝神步骤应位于全部业务字段之后",
+                    filename,
+                ))
 
     for filename, feature_name in DETERMINISTIC_NO_FOCUS.items():
         path = project_root / filename

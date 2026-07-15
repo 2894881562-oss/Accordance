@@ -38,6 +38,29 @@
     }
   }
 
+  function resetFocus(ritual, stateText) {
+    const state = getFocusState(ritual);
+    const startButton = ritual.querySelector("[data-focus-start]");
+    const stopButton = ritual.querySelector("[data-focus-stop]");
+    const seedInput = ritual.closest("form").querySelector("[data-focus-seed]");
+    window.clearInterval(state.timer);
+    state.start = 0;
+    state.timer = 0;
+    state.running = false;
+    state.completed = false;
+    if (seedInput) {
+      seedInput.value = "0";
+    }
+    if (startButton) {
+      startButton.disabled = false;
+      startButton.textContent = "开始默念";
+    }
+    if (stopButton) {
+      stopButton.disabled = true;
+    }
+    setFocusText(ritual, 0, stateText);
+  }
+
   function startFocus(ritual) {
     const state = getFocusState(ritual);
     if (state.running) {
@@ -107,6 +130,22 @@
     return true;
   }
 
+  function invalidateFocusForEdit(event) {
+    const control = event.target.closest("input, textarea, select");
+    if (!control || control.matches('[data-focus-seed], input[type="hidden"]')) {
+      return;
+    }
+    const form = control.closest(".ajax-form");
+    const ritual = form?.querySelector("[data-focus-ritual]");
+    if (!ritual) {
+      return;
+    }
+    const state = getFocusState(ritual);
+    if (state.running || state.completed) {
+      resetFocus(ritual, "资料已变更，请确认内容后重新默念起卦。");
+    }
+  }
+
   async function submitForm(form, force) {
     const target = document.querySelector(form.dataset.target);
     if (!completeRunningFocus(form)) {
@@ -146,6 +185,9 @@
     event.preventDefault();
     submitForm(form, false);
   });
+
+  document.addEventListener("input", invalidateFocusForEdit);
+  document.addEventListener("change", invalidateFocusForEdit);
 
   document.addEventListener("click", function (event) {
     const startButton = event.target.closest("[data-focus-start]");
