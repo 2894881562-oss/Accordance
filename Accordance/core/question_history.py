@@ -54,6 +54,7 @@ HISTORY_DISABLED = _truthy_env("ACCORDANCE_HISTORY_DISABLED")
 HISTORY_SCHEMA_VERSION = 3
 MAX_HISTORY_ENTRIES = 120
 MAX_HISTORY_BYTES = 96 * 1024
+MAX_HISTORY_READ_BYTES = MAX_HISTORY_BYTES * 4
 MAX_QUESTION_CHARS = 120
 MAX_SUMMARY_CHARS = 120
 MAX_CONTEXT_CHARS = 180
@@ -561,13 +562,16 @@ class QuestionHistory:
         should_migrate = False
         try:
             if os.path.exists(self._history_file):
-                with open(self._history_file, "r", encoding="utf-8") as f:
-                    raw = json.load(f)
-                if not isinstance(raw, list):
+                if os.path.getsize(self._history_file) > MAX_HISTORY_READ_BYTES:
                     self._load_failed = True
                 else:
-                    self._history = _compact_history(raw)
-                    should_migrate = raw != self._history
+                    with open(self._history_file, "r", encoding="utf-8") as f:
+                        raw = json.load(f)
+                    if not isinstance(raw, list):
+                        self._load_failed = True
+                    else:
+                        self._history = _compact_history(raw)
+                        should_migrate = raw != self._history
         except (json.JSONDecodeError, IOError, OSError):
             self._history = []
             self._load_failed = True

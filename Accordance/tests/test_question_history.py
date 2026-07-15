@@ -6,6 +6,7 @@ from unittest.mock import Mock, mock_open, patch
 
 from core.question_history import (
     HISTORY_SCHEMA_VERSION,
+    MAX_HISTORY_READ_BYTES,
     QuestionHistory,
     _compact_entry,
     _expand_with_synonyms,
@@ -149,6 +150,8 @@ class QuestionHistoryTests(unittest.TestCase):
     def test_corrupt_history_is_not_overwritten_by_automatic_save(self):
         history = QuestionHistory(history_file="corrupt-history.json", disabled=False)
         with patch("core.question_history.os.path.exists", return_value=True), patch(
+            "core.question_history.os.path.getsize", return_value=9
+        ), patch(
             "builtins.open", mock_open(read_data="{not-json")
         ):
             self.assertEqual(history.get_recent(), [])
@@ -158,6 +161,18 @@ class QuestionHistoryTests(unittest.TestCase):
             self.assertFalse(history.add_question("new question", "test", "result"))
         save.assert_called_once()
         self.assertEqual(history._history, [])
+
+    def test_oversized_history_is_not_opened(self):
+        history = QuestionHistory(history_file="oversized-history.json", disabled=False)
+        file_open = mock_open(read_data="[]")
+        with patch("core.question_history.os.path.exists", return_value=True), patch(
+            "core.question_history.os.path.getsize",
+            return_value=MAX_HISTORY_READ_BYTES + 1,
+        ), patch("builtins.open", file_open):
+            self.assertEqual(history.get_recent(), [])
+
+        file_open.assert_not_called()
+        self.assertTrue(history._load_failed)
 
     def test_explicit_clear_can_recover_failed_load_state(self):
         history = QuestionHistory(history_file="corrupt-history.json", disabled=False)
