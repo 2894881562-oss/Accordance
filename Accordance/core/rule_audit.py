@@ -224,7 +224,16 @@ DETERMINISTIC_NO_FOCUS = {
 REQUIRED_HISTORY_WIRING = {
     "core/question_history.py": (
         "历史原子持久化",
-        ("tempfile.NamedTemporaryFile", "f.flush()", "os.fsync", "os.replace", "os.remove"),
+        (
+            "tempfile.NamedTemporaryFile",
+            "f.flush()",
+            "os.fsync",
+            "os.replace",
+            "os.remove",
+            "【历史未保存】",
+            "if history.clear():",
+            "重启后旧记录可能恢复",
+        ),
     ),
     "modules/full_divination.py": ("六爻详占", ("handle_duplicate_check", "record_question")),
     "modules/quick_divination.py": ("三爻快占", ("handle_duplicate_check", "record_question")),

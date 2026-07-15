@@ -932,7 +932,15 @@ def handle_duplicate_check(question, module_label, allow_rephrase=True, match_mo
 
 def record_question(question, module_label, result_summary):
     """起卦完成后调用，记录到历史并持久化。"""
-    return get_session_history().add_question(question, module_label, result_summary)
+    history = get_session_history()
+    recorded = history.add_question(question, module_label, result_summary)
+    if recorded:
+        return True
+    if getattr(history, "_disabled", False):
+        print("  【历史未保存】历史记录已由 ACCORDANCE_HISTORY_DISABLED 禁用。")
+    else:
+        print("  【历史未保存】无法写入历史文件；本次分析不受影响，但重启后复问提醒可能缺少此条记录。")
+    return False
 
 
 def show_history():
@@ -988,6 +996,8 @@ def clear_history():
         print(_sep())
         return
 
-    history.clear()
-    print("历史询问记录已清空。")
+    if history.clear():
+        print("历史询问记录已清空。")
+    else:
+        print("当前会话中的历史已清空，但未能写回历史文件；重启后旧记录可能恢复。")
     print(_sep())
