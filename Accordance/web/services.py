@@ -51,6 +51,15 @@ FEATURES = {
     "qimen": {"name": "奇门运筹", "label": "奇门运筹分析", "method_key": "qimen"},
 }
 
+FOCUS_REQUIRED_FEATURES = frozenset({
+    "full",
+    "quick",
+    "item",
+    "decision",
+    "multi_decision",
+    "qimen",
+})
+
 
 def _clean(text, default="", limit=200):
     value = (text or "").strip()
@@ -295,6 +304,7 @@ def _blocked_response(question, duplicate):
 def run_divination(feature_key, payload, client_id):
     if feature_key not in FEATURES:
         raise ValueError("未知功能入口")
+    _require_focus_seed(feature_key, payload.focus_seed)
     if feature_key == "full":
         return _run_full(payload, client_id)
     if feature_key == "quick":
@@ -314,6 +324,11 @@ def run_divination(feature_key, payload, client_id):
     if feature_key == "qimen":
         return _run_qimen(payload, client_id)
     raise ValueError("未知功能入口")
+
+
+def _require_focus_seed(feature_key, focus_seed):
+    if feature_key in FOCUS_REQUIRED_FEATURES and focus_seed <= 0:
+        raise ValueError("请先完成默念凝神，再提交本次分析")
 
 
 def _run_full(payload, client_id):

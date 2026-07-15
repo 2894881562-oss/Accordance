@@ -68,6 +68,8 @@ REQUIRED_WEB_FOCUS_WIRING = {
     "web/services.py": (
         "Web 二选一与奇门",
         (
+            "FOCUS_REQUIRED_FEATURES",
+            "_require_focus_seed(feature_key, payload.focus_seed)",
             "_option_qi_gua(question, option_a, payload.focus_seed)",
             "_option_qi_gua(question, option_b, payload.focus_seed)",
             "current=datetime.datetime.now()",
