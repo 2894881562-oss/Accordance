@@ -14,8 +14,6 @@ from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
 from core.question_precheck import build_question_profile, format_question_profile
 from core.question_history import handle_duplicate_check, record_question
 from config.bagua_data import BAGUA_DATA
-from config.hexagram_data import HEXAGRAM_DATA
-from config.wuxing_rules import WUXING_SHENG, WUXING_KE
 
 
 DECISION_SPLIT_PATTERN = re.compile(r"(.+?)\s*(?:还是|或者|或)\s*(.+)")

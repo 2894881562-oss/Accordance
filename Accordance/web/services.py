@@ -2,7 +2,6 @@
 """Web/API 可复用的非交互起卦服务。"""
 
 import datetime
-from typing import Any, Dict, List
 
 from config.name_strokes import analyze_text_strokes
 from core.bazi import analyze_bazi_birth

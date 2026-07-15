@@ -20,14 +20,13 @@
 import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from config.bagua_data import BAGUA_DATA, NUM_TO_GUA_NAME
-from config.hexagram_data import HEXAGRAM_DATA, HUGUA_MAP, TRIGRAM_CUO, TRIGRAM_ZONG
+from config.bagua_data import BAGUA_DATA
+from config.hexagram_data import HUGUA_MAP, TRIGRAM_CUO, TRIGRAM_ZONG
 from config.wuxing_rules import WUXING_SHENG, WUXING_KE
 from core.qi_context import (
     build_qi_seed,
     normalize_mod,
     get_accurate_day_ganzhi,
-    get_day_tiangan,
     get_yueling_by_solar,
     get_season_by_yueling,
     get_shichen_by_hour,

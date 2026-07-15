@@ -30,7 +30,7 @@ from config.qimen_data import (
     SIX_YI,
     THREE_QI,
 )
-from config.wuxing_rules import DIZHI_ORDER, DIZHI_WUXING, TIANGAN_WUXING
+from config.wuxing_rules import DIZHI_ORDER, TIANGAN_WUXING
 from core.method_selector import METHOD_PROFILES, NEGATIVE_HINTS, recommend_divination_methods
 from core.qimen import analyze_qimen
 from core.zhuanggua import (

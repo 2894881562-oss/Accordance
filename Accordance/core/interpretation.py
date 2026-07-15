@@ -13,8 +13,7 @@ from config.naja_data import (
     LIUQIN_XIANGYI, LIUSHEN_XIANGYI,
 )
 from config.yijing_philosophy import (
-    build_human_guidance, get_hexagram_wisdom, get_situation_advice,
-    HUMAN_AGENCY_REMINDER,
+    build_human_guidance, HUMAN_AGENCY_REMINDER,
 )
 from config.daxiang_data import get_daxiang
 from config.tuanzhuan_data import get_tuanzhuan
@@ -33,7 +32,7 @@ from core.zhuanggua import (
     analyze_line_strength_summary, analyze_bian_line_relation,
     build_traditional_evidence_chain,
     analyze_dong_yao_pattern, analyze_hexagram_liuhe_liuchong,
-    select_primary_yongshen, analyze_guashen,
+    analyze_guashen,
 )
 
 
@@ -366,7 +365,7 @@ def _build_shi_ying_analysis(shi_line, ying_line, dong_line):
     shi_lq = shi_line.get("liuqin", "")
     ying_lq = ying_line.get("liuqin", "")
 
-    from config.wuxing_rules import DIZHI_CHONG, DIZHI_HE, DIZHI_XING, WUXING_SHENG, WUXING_KE
+    from config.wuxing_rules import DIZHI_CHONG, DIZHI_HE, WUXING_SHENG, WUXING_KE
     relations = []
     if DIZHI_CHONG.get(shi_dizhi) == ying_dizhi:
         relations.append("世应相冲，双方立场对立，事情多有冲突")
@@ -522,28 +521,24 @@ def _build_category_conclusion(category, yongshen_name, score, yong_lines,
         return _append_timing(base)
 
     # ── 官职事业运（官鬼为用神）──
-    if "官职" in category or "官鬼" == yongshen_name:
-        if "婚恋" in category:
-            # 女占婚恋的官鬼处理，已在上面婚恋分支处理
-            pass
+    if ("官职" in category or "官鬼" == yongshen_name) and "婚恋" not in category:
+        if yong_strong and yuan_strong and not ji_strong:
+            base = "官爻旺相得原神生扶，事业运佳、升迁有望。宜积极争取机会，展现能力，但戒骄戒躁"
+        elif yong_strong and ji_strong:
+            base = "官爻虽旺但忌神亦强，事业有竞争压力，或遇小人阻碍。宜低调行事，以实力服人而非正面冲突"
+        elif yong_weak:
+            base = "官爻衰弱，事业近期难有突破。不宜跳槽或创业，宜韬光养晦、提升自我，待机而发"
+        elif has_huike:
+            base = "动变回头克官，事业须防后续变故或上级不满。做好分内之事、留好工作记录，不可轻易冒险"
+        elif has_huisheng:
+            base = "动变回头生官，事业后势有贵人扶持或机会再现。坚持下去可成，但不可松懈"
+        elif score >= 2:
+            base = "用神证据偏有利，事业可按计划推进。专心致志、稳扎稳打"
+        elif score >= -1:
+            base = "用神力量中平，事业宜求稳。不急功近利，也不妄自菲薄，踏实做好每一件小事"
         else:
-            if yong_strong and yuan_strong and not ji_strong:
-                base = "官爻旺相得原神生扶，事业运佳、升迁有望。宜积极争取机会，展现能力，但戒骄戒躁"
-            elif yong_strong and ji_strong:
-                base = "官爻虽旺但忌神亦强，事业有竞争压力，或遇小人阻碍。宜低调行事，以实力服人而非正面冲突"
-            elif yong_weak:
-                base = "官爻衰弱，事业近期难有突破。不宜跳槽或创业，宜韬光养晦、提升自我，待机而发"
-            elif has_huike:
-                base = "动变回头克官，事业须防后续变故或上级不满。做好分内之事、留好工作记录，不可轻易冒险"
-            elif has_huisheng:
-                base = "动变回头生官，事业后势有贵人扶持或机会再现。坚持下去可成，但不可松懈"
-            elif score >= 2:
-                base = "用神证据偏有利，事业可按计划推进。专心致志、稳扎稳打"
-            elif score >= -1:
-                base = "用神力量中平，事业宜求稳。不急功近利，也不妄自菲薄，踏实做好每一件小事"
-            else:
-                base = "用神受制较重，事业宜守不宜攻。不轻易辞职或转换方向，待自身状态与时机更好时再图进取"
-            return _append_timing(base)
+            base = "用神受制较重，事业宜守不宜攻。不轻易辞职或转换方向，待自身状态与时机更好时再图进取"
+        return _append_timing(base)
 
     # ── 婚恋感情 ──
     if "婚恋" in category:

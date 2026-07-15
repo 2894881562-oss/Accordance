@@ -1240,7 +1240,6 @@ TRIGRAM_ZONG = {1: 1, 8: 8, 2: 5, 5: 2, 3: 3, 6: 6, 4: 7, 7: 4}
 # 互卦算法：取本卦二三四爻为下卦，三四五爻为上卦
 def _build_hugua_map():
     """构建64卦互卦映射表"""
-    from config.bagua_data import NUM_TO_GUA_NAME
     hugua_map = {}
     # 八经卦三爻映射
     trigram_yao = {
