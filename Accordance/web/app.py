@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 """FastAPI mobile web entrypoint."""
 
+import ipaddress
 import json
+import os
+import socket
 import time
 from collections import defaultdict, deque
 from pathlib import Path
@@ -30,11 +33,30 @@ templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))
 app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="static")
 
 RATE_WINDOW_SECONDS = 60
-RATE_LIMIT = 60
+RATE_LIMIT_PER_CLIENT = 60
+RATE_LIMIT_PER_IP = 120
 MAX_RATE_BUCKETS = 4096
 MAX_REQUEST_BYTES = 64 * 1024
+PROXY_DNS_TTL_SECONDS = 60
 _rate_bucket = defaultdict(deque)
 _last_rate_prune = 0.0
+_proxy_dns_cache = {}
+
+
+def _trusted_proxy_specs():
+    configured = os.getenv("ACCORDANCE_TRUSTED_PROXIES", "")
+    specs = ["127.0.0.1", "::1"]
+    specs.extend(item.strip() for item in configured.split(",") if item.strip())
+    return tuple(dict.fromkeys(specs))
+
+
+TRUSTED_PROXY_NETWORKS = []
+TRUSTED_PROXY_HOSTS = []
+for _proxy_spec in _trusted_proxy_specs():
+    try:
+        TRUSTED_PROXY_NETWORKS.append(ipaddress.ip_network(_proxy_spec, strict=False))
+    except ValueError:
+        TRUSTED_PROXY_HOSTS.append(_proxy_spec)
 
 SECURITY_HEADERS = {
     "Cache-Control": "no-store",
@@ -47,14 +69,56 @@ SECURITY_HEADERS = {
 }
 
 
+def _parse_ip(value):
+    candidate = (value or "").strip().strip("[]").split("%", 1)[0]
+    try:
+        address = ipaddress.ip_address(candidate)
+    except ValueError:
+        return None
+    return getattr(address, "ipv4_mapped", None) or address
+
+
+def _resolved_proxy_addresses(hostname):
+    now = time.monotonic()
+    cached = _proxy_dns_cache.get(hostname)
+    if cached and now - cached[0] < PROXY_DNS_TTL_SECONDS:
+        return cached[1]
+    try:
+        addresses = {
+            address
+            for item in socket.getaddrinfo(hostname, None, type=socket.SOCK_STREAM)
+            if (address := _parse_ip(item[4][0])) is not None
+        }
+    except OSError:
+        addresses = set()
+    _proxy_dns_cache[hostname] = (now, addresses)
+    return addresses
+
+
+def _is_trusted_proxy(request):
+    peer = _parse_ip(request.client.host if request.client else "")
+    if peer is None:
+        return False
+    if any(
+        peer in network
+        for network in TRUSTED_PROXY_NETWORKS
+        if peer.version == network.version
+    ):
+        return True
+    return any(peer in _resolved_proxy_addresses(hostname) for hostname in TRUSTED_PROXY_HOSTS)
+
+
 def _client_ip(request):
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    peer = _parse_ip(request.client.host if request.client else "")
+    if _is_trusted_proxy(request):
+        forwarded = request.headers.get("x-forwarded-for", "").split(",", 1)[0]
+        forwarded_ip = _parse_ip(forwarded)
+        if forwarded_ip is not None:
+            return str(forwarded_ip)
+    return str(peer) if peer is not None else "unknown"
 
 
-def _prune_rate_buckets(now, incoming_key):
+def _prune_rate_buckets(now, incoming_keys):
     global _last_rate_prune
     if now - _last_rate_prune >= RATE_WINDOW_SECONDS:
         for key, bucket in list(_rate_bucket.items()):
@@ -64,23 +128,33 @@ def _prune_rate_buckets(now, incoming_key):
                 _rate_bucket.pop(key, None)
         _last_rate_prune = now
 
-    if incoming_key not in _rate_bucket and len(_rate_bucket) >= MAX_RATE_BUCKETS:
-        overflow = len(_rate_bucket) - MAX_RATE_BUCKETS + 1
-        oldest_keys = sorted(_rate_bucket, key=lambda key: _rate_bucket[key][-1])
+    incoming_keys = set(incoming_keys)
+    new_key_count = sum(key not in _rate_bucket for key in incoming_keys)
+    if len(_rate_bucket) + new_key_count > MAX_RATE_BUCKETS:
+        overflow = len(_rate_bucket) + new_key_count - MAX_RATE_BUCKETS
+        oldest_keys = sorted(
+            (key for key in _rate_bucket if key not in incoming_keys),
+            key=lambda key: _rate_bucket[key][-1],
+        )
         for key in oldest_keys[:overflow]:
             _rate_bucket.pop(key, None)
 
 
 def _rate_limit(request, client_id):
-    key = f"{_client_ip(request)}:{client_id}"
-    now = time.time()
-    _prune_rate_buckets(now, key)
-    bucket = _rate_bucket[key]
-    while bucket and now - bucket[0] > RATE_WINDOW_SECONDS:
-        bucket.popleft()
-    if len(bucket) >= RATE_LIMIT:
-        raise HTTPException(status_code=429, detail="请求过于频繁，请稍后再试。")
-    bucket.append(now)
+    limits = (
+        (f"ip:{_client_ip(request)}", RATE_LIMIT_PER_IP),
+        (f"client:{client_id}", RATE_LIMIT_PER_CLIENT),
+    )
+    now = time.monotonic()
+    _prune_rate_buckets(now, [key for key, _ in limits])
+    for key, limit in limits:
+        bucket = _rate_bucket[key]
+        while bucket and now - bucket[0] > RATE_WINDOW_SECONDS:
+            bucket.popleft()
+        if len(bucket) >= limit:
+            raise HTTPException(status_code=429, detail="请求过于频繁，请稍后再试。")
+    for key, _ in limits:
+        _rate_bucket[key].append(now)
 
 
 def _ensure_client_id(request):
@@ -94,8 +168,17 @@ def _apply_security_headers(response):
 
 
 def _is_https_request(request):
-    forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",")[0].strip().lower()
-    return request.url.scheme == "https" or forwarded_proto == "https"
+    if request.url.scheme == "https":
+        return True
+    if not _is_trusted_proxy(request):
+        return False
+    forwarded_proto = (
+        request.headers.get("x-forwarded-proto", "")
+        .split(",", 1)[0]
+        .strip()
+        .lower()
+    )
+    return forwarded_proto == "https"
 
 
 def _with_client_cookie(response, client_id, request):

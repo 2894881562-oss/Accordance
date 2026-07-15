@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     environment:
       ACCORDANCE_WEB_DATA_DIR: /data/web_clients
+      ACCORDANCE_TRUSTED_PROXIES: caddy
     volumes:
       - accordance_web_data:/data
     read_only: true

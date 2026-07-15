@@ -87,8 +87,13 @@ REQUIRED_WEB_REQUEST_WIRING = {
         (
             "except ValidationError as exc:",
             "raise HTTPException(status_code=422, detail=exc.errors()) from exc",
+            "RATE_LIMIT_PER_CLIENT = 60",
+            "RATE_LIMIT_PER_IP = 120",
             "MAX_RATE_BUCKETS = 4096",
             "MAX_REQUEST_BYTES = 64 * 1024",
+            "ACCORDANCE_TRUSTED_PROXIES",
+            "_is_trusted_proxy",
+            "socket.getaddrinfo",
             "_prune_rate_buckets",
             '"Content-Security-Policy"',
             '"Permissions-Policy"',
@@ -164,7 +169,12 @@ REQUIRED_DEPLOYMENT_WIRING = {
         "mkdir -p /data/web_clients",
     ),
     "docker-compose.yml": ("read_only: true", "no-new-privileges:true", "- /tmp"),
-    "deploy/cloud/docker-compose.yml": ("read_only: true", "no-new-privileges:true", "- /tmp"),
+    "deploy/cloud/docker-compose.yml": (
+        "read_only: true",
+        "no-new-privileges:true",
+        "- /tmp",
+        "ACCORDANCE_TRUSTED_PROXIES: caddy",
+    ),
     "start_local_web.ps1": (
         "import fastapi, uvicorn, jinja2, multipart",
         "Get-NetTCPConnection -LocalPort 8000 -State Listen",

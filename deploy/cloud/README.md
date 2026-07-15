@@ -60,6 +60,7 @@ docker compose --env-file deploy/cloud/.env -f deploy/cloud/docker-compose.yml l
 
 看到 `accordance-web` 为 `healthy`，`caddy` 为运行中后，再继续访问测试。
 应用容器默认以非 root 用户运行、根文件系统只读，仅 `/data` 匿名历史卷与临时目录可写，并启用 `no-new-privileges`。
+应用只在连接直接来自 Compose 内的 `caddy` 主机时采用其转发 IP/协议头；Caddy 默认丢弃客户端伪造的 `X-Forwarded-*` 值后重建这些头（见 [Caddy 官方代理头说明](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#headers)）。请勿把 `ACCORDANCE_TRUSTED_PROXIES` 配成不受控的公网或局域网网段。
 
 访问：
 
