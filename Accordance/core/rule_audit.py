@@ -92,6 +92,9 @@ REQUIRED_WEB_REQUEST_WIRING = {
             '"X-Frame-Options": "DENY"',
             "status_code=413",
             "len(await request.body()) > MAX_REQUEST_BYTES",
+            "_is_https_request",
+            'path="/"',
+            "secure=_is_https_request(request)",
         ),
     ),
     "web/schemas.py": (

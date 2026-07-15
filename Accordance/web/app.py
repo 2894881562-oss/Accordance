@@ -92,13 +92,20 @@ def _apply_security_headers(response):
     return response
 
 
-def _with_client_cookie(response, client_id):
+def _is_https_request(request):
+    forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",")[0].strip().lower()
+    return request.url.scheme == "https" or forwarded_proto == "https"
+
+
+def _with_client_cookie(response, client_id, request):
     response.set_cookie(
         "client_id",
         client_id,
         max_age=3600 * 24 * 365,
         httponly=True,
+        path="/",
         samesite="lax",
+        secure=_is_https_request(request),
     )
     return _apply_security_headers(response)
 
@@ -141,7 +148,7 @@ def index(request: Request):
         name="index.html",
         context={"request": request, "features": FEATURES, "title": "Accordance"},
     )
-    return _with_client_cookie(response, client_id)
+    return _with_client_cookie(response, client_id, request)
 
 
 @app.get("/features/{key}", response_class=HTMLResponse)
@@ -161,7 +168,7 @@ def feature_form(request: Request, key: str):
             "initial_question": initial_question,
         },
     )
-    return _with_client_cookie(response, client_id)
+    return _with_client_cookie(response, client_id, request)
 
 
 @app.post("/api/divinations/{key}")
@@ -190,7 +197,7 @@ async def api_divination(request: Request, key: str):
             name="partials/result.html",
             context={"request": request, "result": result, "feature": FEATURES[key], "key": key},
         )
-    return _with_client_cookie(response, client_id)
+    return _with_client_cookie(response, client_id, request)
 
 
 @app.get("/history", response_class=HTMLResponse)
@@ -211,7 +218,7 @@ def history_page(request: Request):
             "cleared": request.query_params.get("cleared") == "1",
         },
     )
-    return _with_client_cookie(response, client_id)
+    return _with_client_cookie(response, client_id, request)
 
 
 @app.post("/history/clear")
@@ -220,7 +227,7 @@ def history_clear(request: Request):
     _rate_limit(request, client_id)
     clear_history(client_id)
     response = RedirectResponse("/history?cleared=1", status_code=303)
-    return _with_client_cookie(response, client_id)
+    return _with_client_cookie(response, client_id, request)
 
 
 @app.get("/method-selector", response_class=HTMLResponse)
@@ -231,7 +238,7 @@ def method_selector(request: Request):
         name="method_selector.html",
         context={"request": request, "title": "起卦法选择器", "result": None},
     )
-    return _with_client_cookie(response, client_id)
+    return _with_client_cookie(response, client_id, request)
 
 
 @app.post("/api/method-selector")
@@ -255,4 +262,4 @@ async def api_method_selector(request: Request):
             name="partials/method_result.html",
             context={"request": request, "result": result},
         )
-    return _with_client_cookie(response, client_id)
+    return _with_client_cookie(response, client_id, request)
