@@ -32,6 +32,15 @@ from config.qimen_data import (
 )
 from config.wuxing_rules import DIZHI_ORDER, TIANGAN_WUXING
 from core.method_selector import METHOD_PROFILES, NEGATIVE_HINTS, recommend_divination_methods
+from core.qi_context import (
+    JIAZI_TABLE,
+    get_accurate_day_ganzhi,
+    get_shichen_by_hour,
+    get_shichen_ganzhi,
+    get_xunkong,
+    get_year_ganzhi_by_date,
+    get_yueling_by_solar,
+)
 from core.qimen import analyze_qimen
 from core.zhuanggua import (
     SHI_YING_BY_PALACE_INDEX,
@@ -1212,6 +1221,91 @@ def audit_qimen_rules():
     return issues
 
 
+def audit_qi_context_rules():
+    """校验日干支、旬空、年柱、月建与时辰基础闭环。"""
+    issues = []
+    if len(JIAZI_TABLE) != 60 or len(set(JIAZI_TABLE)) != 60:
+        issues.append(_issue("error", "气机历法", "六十甲子表数量或唯一性错误"))
+
+    base_date = datetime.datetime(1900, 1, 1)
+    if get_accurate_day_ganzhi(base_date) != "甲戌":
+        issues.append(_issue("error", "气机历法", "日干支基准日不是甲戌"))
+    sample_start = datetime.datetime(2024, 2, 27)
+    sample_days = [
+        get_accurate_day_ganzhi(sample_start + datetime.timedelta(days=offset))
+        for offset in range(10)
+    ]
+    sample_indexes = [JIAZI_TABLE.index(item) for item in sample_days]
+    if any(
+        current != (previous + 1) % 60
+        for previous, current in zip(sample_indexes, sample_indexes[1:])
+    ):
+        issues.append(_issue("error", "气机历法", "跨闰日的日干支没有逐日递增", str(sample_days)))
+
+    expected_xunkong = (
+        ("甲子", ["戌", "亥"]),
+        ("甲戌", ["申", "酉"]),
+        ("甲申", ["午", "未"]),
+        ("甲午", ["辰", "巳"]),
+        ("甲辰", ["寅", "卯"]),
+        ("甲寅", ["子", "丑"]),
+    )
+    for ganzhi, branches in expected_xunkong:
+        if get_xunkong(ganzhi)["empty_branches"] != branches:
+            issues.append(_issue("error", "气机历法", f"{ganzhi}旬空映射错误"))
+
+    expected_hour_numbers = (
+        1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7,
+        7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 1,
+    )
+    actual_hour_numbers = tuple(get_shichen_by_hour(hour) for hour in range(24))
+    if actual_hour_numbers != expected_hour_numbers:
+        issues.append(_issue("error", "气机历法", "二十四小时到十二时辰的边界错误", str(actual_hour_numbers)))
+
+    expected_zi_hours = {
+        "甲": "甲子", "己": "甲子",
+        "乙": "丙子", "庚": "丙子",
+        "丙": "戊子", "辛": "戊子",
+        "丁": "庚子", "壬": "庚子",
+        "戊": "壬子", "癸": "壬子",
+    }
+    for stem, expected in expected_zi_hours.items():
+        actual = get_shichen_ganzhi(stem, 1)
+        if actual != expected:
+            issues.append(_issue("error", "气机历法", f"{stem}日子时干支错误", actual))
+
+    if get_year_ganzhi_by_date(datetime.datetime(1984, 2, 3)) != "癸亥":
+        issues.append(_issue("error", "气机历法", "立春前年柱边界错误"))
+    if get_year_ganzhi_by_date(datetime.datetime(1984, 2, 4)) != "甲子":
+        issues.append(_issue("error", "气机历法", "立春后年柱边界错误"))
+
+    expected_month_boundaries = (
+        ((1, 5), "子"), ((1, 6), "丑"),
+        ((2, 3), "丑"), ((2, 4), "寅"),
+        ((3, 5), "寅"), ((3, 6), "卯"),
+        ((4, 4), "卯"), ((4, 5), "辰"),
+        ((5, 5), "辰"), ((5, 6), "巳"),
+        ((6, 5), "巳"), ((6, 6), "午"),
+        ((7, 6), "午"), ((7, 7), "未"),
+        ((8, 6), "未"), ((8, 7), "申"),
+        ((9, 7), "申"), ((9, 8), "酉"),
+        ((10, 7), "酉"), ((10, 8), "戌"),
+        ((11, 6), "戌"), ((11, 7), "亥"),
+        ((12, 6), "亥"), ((12, 7), "子"),
+    )
+    for (month, day), expected in expected_month_boundaries:
+        actual = get_yueling_by_solar(datetime.datetime(2026, month, day))
+        if actual != expected:
+            issues.append(_issue(
+                "error",
+                "气机历法",
+                f"{month}月{day}日月建边界错误",
+                f"actual={actual} expected={expected}",
+            ))
+
+    return issues
+
+
 def run_rule_audit():
     """运行完整规则审计。"""
     checks = [
@@ -1227,6 +1321,7 @@ def run_rule_audit():
         ("六神规则", audit_liushen_rules),
         ("六十四卦象义校准", audit_hexagram_calibration),
         ("起卦法选择器", audit_method_selector_profiles),
+        ("气机历法", audit_qi_context_rules),
         ("八字规则", audit_bazi_rules),
         ("奇门规则", audit_qimen_rules),
     ]
@@ -1254,7 +1349,7 @@ def format_rule_audit_report(audit_result=None):
         f"错误：{result['error_count']}；警告：{result['warning_count']}",
     ]
     if not result["issues"]:
-        lines.append("凝神入口、Web 请求、CLI 输入、部署入口、历史记录、姓名笔画、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则、多选最优和起卦法选择器配置均已通过一致性校验。")
+        lines.append("凝神入口、Web 请求、CLI 输入、部署入口、历史记录、姓名笔画、气机历法、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则、多选最优和起卦法选择器配置均已通过一致性校验。")
         return "\n".join(lines)
 
     for issue in result["issues"]:
