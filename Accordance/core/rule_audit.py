@@ -95,6 +95,9 @@ REQUIRED_WEB_REQUEST_WIRING = {
             "_is_https_request",
             'path="/"',
             "secure=_is_https_request(request)",
+            "_read_request_data",
+            "except (json.JSONDecodeError, UnicodeDecodeError) as exc:",
+            "status_code=415",
         ),
     ),
     "web/schemas.py": (

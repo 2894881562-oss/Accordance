@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """FastAPI mobile web entrypoint."""
 
+import json
 import time
 from collections import defaultdict, deque
 from pathlib import Path
@@ -114,6 +115,18 @@ def _wants_json(request):
     return "application/json" in request.headers.get("accept", "")
 
 
+async def _read_request_data(request):
+    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if content_type == "application/json":
+        try:
+            return await request.json()
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise HTTPException(status_code=400, detail="请求正文不是有效 JSON") from exc
+    if content_type in {"", "application/x-www-form-urlencoded", "multipart/form-data"}:
+        return dict(await request.form())
+    raise HTTPException(status_code=415, detail="仅支持 JSON 或表单请求")
+
+
 @app.middleware("http")
 async def privacy_headers(request, call_next):
     content_length = request.headers.get("content-length", "")
@@ -177,10 +190,7 @@ async def api_divination(request: Request, key: str):
         raise HTTPException(status_code=404, detail="功能不存在")
     client_id = _ensure_client_id(request)
     _rate_limit(request, client_id)
-    try:
-        data = await request.json()
-    except Exception:
-        data = dict(await request.form())
+    data = await _read_request_data(request)
     try:
         payload = DivinationRequest.model_validate(data)
         result = run_divination(key, payload, client_id)
@@ -245,10 +255,7 @@ def method_selector(request: Request):
 async def api_method_selector(request: Request):
     client_id = _ensure_client_id(request)
     _rate_limit(request, client_id)
-    try:
-        data = await request.json()
-    except Exception:
-        data = dict(await request.form())
+    data = await _read_request_data(request)
     try:
         payload = MethodSelectorRequest.model_validate(data)
     except ValidationError as exc:
