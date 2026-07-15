@@ -137,6 +137,8 @@ REQUIRED_WEB_REQUEST_WIRING = {
         (
             "详细分析共 {{ result.sections|length }} 节，默认收起，请按需展开。",
             '<details class="detail">',
+            "result.duplicate_check.confirmation_required",
+            "历史未保存",
         ),
     ),
 }
@@ -207,6 +209,7 @@ REQUIRED_WEB_HISTORY_WIRING = {
             "_plain_qimen_conclusion",
             "_item_history_question",
             "_decision_history_question",
+            'duplicate["confirmation_required"]',
         ),
     ),
     "web/templates/history.html": (

@@ -318,9 +318,12 @@ def _record_if_needed(client_id, question, module_label, summary, should_record=
 
 
 def _gate_duplicate(client_id, question, module_label, force, match_mode="semantic"):
-    duplicate = check_duplicate(client_id, question, module_label, match_mode=match_mode)
-    if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not force:
-        return duplicate
+    duplicate = dict(check_duplicate(client_id, question, module_label, match_mode=match_mode))
+    duplicate["confirmation_required"] = bool(
+        duplicate.get("is_duplicate")
+        and duplicate.get("action") in ("block", "warn")
+        and not force
+    )
     return duplicate
 
 
@@ -505,7 +508,11 @@ def _run_daily(payload, client_id):
         "summary": summary,
         "sections": sections,
         "raw_result": {"hexagram": result, "daily": helper, "input": info},
-        "duplicate_check": {"is_duplicate": False, "action": "none"},
+        "duplicate_check": {
+            "is_duplicate": False,
+            "action": "none",
+            "confirmation_required": False,
+        },
         "history_recorded": False,
     }
 

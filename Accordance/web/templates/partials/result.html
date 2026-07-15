@@ -8,10 +8,17 @@
     <section class="warning">
       <strong>复问提醒</strong>
       <p>{{ result.duplicate_check.message }}</p>
-      {% if not result.history_recorded %}
+      {% if result.duplicate_check.confirmation_required %}
         <p>{{ result.duplicate_check.ethics }}</p>
         <button class="secondary continue-force" type="button">确认继续起卦</button>
       {% endif %}
+    </section>
+  {% endif %}
+
+  {% if key != "daily" and not result.history_recorded and not result.duplicate_check.confirmation_required %}
+    <section class="warning" role="alert">
+      <strong>历史未保存</strong>
+      <p>本次分析已完成，但复问记录未能持久化。请检查服务端历史配置或存储权限。</p>
     </section>
   {% endif %}
 
