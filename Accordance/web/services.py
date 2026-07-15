@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Web/API 可复用的非交互起卦服务。"""
 
+import datetime
 from typing import Any, Dict, List
 
 from core.bazi import analyze_bazi_birth
@@ -14,6 +15,7 @@ from core.divination import (
 from core.interpretation import interpret_hexagram, interpret_three_yao
 from core.method_selector import format_method_recommendation, recommend_divination_methods
 from core.question_precheck import build_question_profile, format_question_profile
+from core.qimen import analyze_qimen, format_qimen_report
 from core.qi_context import get_accurate_day_ganzhi
 from modules.daily_fortune import _plain_daily_conclusion
 from modules.bazi import _bazi_history_question, _bazi_history_summary
@@ -33,6 +35,7 @@ from modules.multi_decision import (
     parse_multi_options_text,
 )
 from modules.name_divination import _name_history_prefix, _name_history_question
+from modules.qimen import _qimen_history_question, _qimen_history_summary
 from web.history_store import check_duplicate, record_question
 
 
@@ -45,6 +48,7 @@ FEATURES = {
     "decision": {"name": "二选一决策", "label": "二选一决策", "method_key": "decision"},
     "multi_decision": {"name": "多选最优", "label": "多选最优决策", "method_key": "multi_decision"},
     "bazi": {"name": "四柱八字", "label": "四柱八字基础分析", "method_key": "bazi"},
+    "qimen": {"name": "奇门运筹", "label": "奇门运筹分析", "method_key": "qimen"},
 }
 
 
@@ -57,6 +61,44 @@ def _clean(text, default="", limit=200):
 
 def _section(title, items):
     return {"title": title, "items": [str(item) for item in items if item not in (None, "")]}
+
+
+def _text_report_sections(report, initial_title="起局摘要"):
+    """把 CLI 的标题式报告转换为 Web 可折叠分节。"""
+    sections = []
+    title = initial_title
+    items = []
+    for raw_line in report.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith("【") and line.endswith("】"):
+            if items:
+                sections.append(_section(title, items))
+            title = line[1:-1]
+            items = []
+        else:
+            items.append(line)
+    if items:
+        sections.append(_section(title, items))
+    return sections
+
+
+def _plain_qimen_conclusion(result):
+    """压缩奇门首屏结论，完整依据保留在折叠分节。"""
+    decision = result.get("integrated_decision", {})
+    confidence = result.get("confidence_profile", {})
+    guardrails = result.get("execution_guardrails", {})
+    signal = decision.get("final_signal") or "信号未定"
+    primary = decision.get("primary_direction") or "待定方位"
+    priority = decision.get("priority") or "先核信息"
+    guard_mode = guardrails.get("mode") or "小步验证"
+    score = confidence.get("score", "未评估")
+    level = confidence.get("level") or "待校准"
+    return (
+        f"{signal}：主位优先{primary}，策略为{priority}，执行上{guard_mode}。"
+        f"置信度{score}/100（{level}）；关键动作前先核对现实条件与停止条件。"
+    )
 
 
 def _profile_section(question, method_key):
@@ -269,6 +311,8 @@ def run_divination(feature_key, payload, client_id):
         return _run_multi_decision(payload, client_id)
     if feature_key == "bazi":
         return _run_bazi(payload, client_id)
+    if feature_key == "qimen":
+        return _run_qimen(payload, client_id)
     raise ValueError("未知功能入口")
 
 
@@ -580,6 +624,40 @@ def _run_bazi(payload, client_id):
         "raw_result": {"bazi": result},
         "duplicate_check": duplicate,
         "history_recorded": True,
+    }
+
+
+def _run_qimen(payload, client_id):
+    topic = _clean(payload.question, "未命名事项")
+    direction = _clean(payload.direction, "", 20)
+    mode = _clean(payload.qimen_mode, "综合", 12)
+    question_key = f"奇门：{topic}"
+    duplicate = _gate_duplicate(
+        client_id,
+        question_key,
+        "奇门运筹",
+        payload.force,
+        match_mode="prefix",
+    )
+    if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not payload.force:
+        return _blocked_response(question_key, duplicate)
+
+    history_question = _qimen_history_question(topic, direction, mode)
+    result = analyze_qimen(
+        topic=topic,
+        direction=direction,
+        mode=mode,
+        current=datetime.datetime.now(),
+    )
+    summary = _qimen_history_summary(result)
+    recorded = _record_if_needed(client_id, history_question, "奇门运筹", summary)
+    return {
+        "plain_conclusion": _plain_qimen_conclusion(result),
+        "summary": summary,
+        "sections": _text_report_sections(format_qimen_report(result)),
+        "raw_result": {"qimen": result, "focus_seed": payload.focus_seed},
+        "duplicate_check": duplicate,
+        "history_recorded": recorded,
     }
 
 

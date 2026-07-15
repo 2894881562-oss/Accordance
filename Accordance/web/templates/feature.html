@@ -7,7 +7,7 @@
 
 <section class="panel">
   <form class="ajax-form" data-endpoint="/api/divinations/{{ key }}" data-target="#result">
-    {% if key in ["full", "quick", "decision", "multi_decision"] %}
+    {% if key in ["full", "quick", "decision", "multi_decision", "qimen"] %}
       <label>所问之事
         <textarea name="question" maxlength="200" rows="3" required placeholder="请简明写清对象、时间范围与所求结果"></textarea>
       </label>
@@ -19,7 +19,7 @@
       </label>
     {% endif %}
 
-    {% if key in ["full", "quick", "item", "decision", "multi_decision"] %}
+    {% if key in ["full", "quick", "item", "decision", "multi_decision", "qimen"] %}
       <input name="focus_seed" type="hidden" value="0" data-focus-seed>
       <div class="focus-ritual" data-focus-ritual>
         <div>
@@ -82,6 +82,24 @@
     {% if key == "multi_decision" %}
       <label>候选选项（每行一个，3–9 项）
         <textarea name="options_text" maxlength="1200" rows="6" required placeholder="方案甲&#10;方案乙&#10;方案丙"></textarea>
+      </label>
+    {% endif %}
+
+    {% if key == "qimen" %}
+      <label>当前或计划采用的方位（可选）
+        <input name="direction" maxlength="20" placeholder="如东、东南、西北">
+      </label>
+      <label>场景类型
+        <select name="qimen_mode">
+          <option value="综合">综合</option>
+          <option value="谈判">谈判</option>
+          <option value="竞争">竞争</option>
+          <option value="财务">财务</option>
+          <option value="出行">出行</option>
+          <option value="事业">事业</option>
+          <option value="学习">学习</option>
+          <option value="健康">健康</option>
+        </select>
       </label>
     {% endif %}
 

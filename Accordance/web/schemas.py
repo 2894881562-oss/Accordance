@@ -26,6 +26,9 @@ class DivinationRequest(BaseModel):
     option_b: Optional[str] = Field("", max_length=120)
     options_text: Optional[str] = Field("", max_length=1200)
 
+    direction: Optional[str] = Field("", max_length=20)
+    qimen_mode: Optional[str] = Field("综合", max_length=12)
+
     birth_date: Optional[str] = Field("", max_length=10)
     birth_hour: Optional[int] = Field(None, ge=0, le=23)
     birth_minute: Optional[int] = Field(0, ge=0, le=59)
