@@ -8,6 +8,11 @@ services:
       ACCORDANCE_WEB_DATA_DIR: /data/web_clients
     volumes:
       - accordance_web_data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
 volumes:

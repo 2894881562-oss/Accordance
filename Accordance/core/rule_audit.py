@@ -142,6 +142,19 @@ REQUIRED_WEB_NAME_STROKE_WIRING = {
         "系统优先按内置康熙/Unihan 数据自动合计",
     ),
 }
+REQUIRED_DEPLOYMENT_WIRING = {
+    "Dockerfile": (
+        "USER accordance",
+        "HEALTHCHECK --interval=30s",
+        "mkdir -p /data/web_clients",
+    ),
+    "docker-compose.yml": ("read_only: true", "no-new-privileges:true", "- /tmp"),
+    "deploy/cloud/docker-compose.yml": ("read_only: true", "no-new-privileges:true", "- /tmp"),
+    "start_local_web.ps1": (
+        "import fastapi, uvicorn, jinja2, multipart",
+        "Get-NetTCPConnection -LocalPort 8000 -State Listen",
+    ),
+}
 DETERMINISTIC_NO_FOCUS = {
     "modules/daily_fortune.py": "当日气运",
     "modules/name_divination.py": "姓名起卦",
@@ -308,6 +321,24 @@ def audit_web_request_wiring():
                 "Web 请求",
                 "严格内容策略下不应使用内联事件处理器",
                 str(path.relative_to(project_root)),
+            ))
+    return issues
+
+
+def audit_deployment_wiring():
+    """校验本机与容器入口的依赖、探活和最小权限约束。"""
+    issues = []
+    repository_root = Path(__file__).resolve().parents[2]
+    for filename, required_tokens in REQUIRED_DEPLOYMENT_WIRING.items():
+        path = repository_root / filename
+        text = path.read_text(encoding="utf-8") if path.exists() else ""
+        missing = [token for token in required_tokens if token not in text]
+        if missing:
+            issues.append(_issue(
+                "error",
+                "部署入口",
+                "本机或容器启动约束不完整",
+                f"{filename} missing={missing}",
             ))
     return issues
 
@@ -1028,6 +1059,7 @@ def run_rule_audit():
     checks = [
         ("凝神入口", audit_focus_seed_wiring),
         ("Web 请求", audit_web_request_wiring),
+        ("部署入口", audit_deployment_wiring),
         ("历史记录", audit_history_wiring),
         ("姓名笔画", audit_name_stroke_data),
         ("八宫矩阵", audit_palace_hexagram_matrix),
@@ -1063,7 +1095,7 @@ def format_rule_audit_report(audit_result=None):
         f"错误：{result['error_count']}；警告：{result['warning_count']}",
     ]
     if not result["issues"]:
-        lines.append("凝神入口、Web 请求、历史记录、姓名笔画、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则、多选最优和起卦法选择器配置均已通过一致性校验。")
+        lines.append("凝神入口、Web 请求、部署入口、历史记录、姓名笔画、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则、多选最优和起卦法选择器配置均已通过一致性校验。")
         return "\n".join(lines)
 
     for issue in result["issues"]:

@@ -181,6 +181,14 @@ uvicorn web.app:app --host 0.0.0.0 --port 8000
 docker compose up -d --build
 ```
 
+若从旧版 root 容器升级且已经存在匿名历史卷，首次切换到本版本时先执行一次：
+
+```bash
+docker compose run --rm --user root accordance-web chown -R accordance:accordance /data
+```
+
+新建数据卷不需要这一步。
+
 访问：
 
 ```text

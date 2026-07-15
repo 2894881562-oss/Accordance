@@ -16,7 +16,10 @@ try {
         Where-Object {
             $_.IPAddress -notlike "127.*" -and
             $_.IPAddress -notlike "169.254.*" -and
-            $_.PrefixOrigin -ne "WellKnown"
+            $_.PrefixOrigin -ne "WellKnown" -and
+            $_.AddressState -eq "Preferred" -and
+            -not $_.SkipAsSource -and
+            $_.InterfaceAlias -notmatch "vEthernet|WSL|Docker"
         } |
         Select-Object -ExpandProperty IPAddress -Unique
 } catch {
@@ -44,10 +47,20 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 }
 
 Set-Location $ProjectRoot
-python -B -c "import fastapi, uvicorn, jinja2" 2>$null
+python -B -c "import fastapi, uvicorn, jinja2, multipart" 2>$null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Web dependencies are missing. Run this once:"
     Write-Host "  pip install -r requirements.txt"
+    exit 1
+}
+
+try {
+    $portListener = Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue
+} catch {
+    $portListener = $null
+}
+if ($portListener) {
+    Write-Host "Port 8000 is already in use. Close the existing service, then run this script again."
     exit 1
 }
 

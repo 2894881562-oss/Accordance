@@ -59,6 +59,7 @@ docker compose --env-file deploy/cloud/.env -f deploy/cloud/docker-compose.yml l
 ```
 
 看到 `accordance-web` 为 `healthy`，`caddy` 为运行中后，再继续访问测试。
+应用容器默认以非 root 用户运行、根文件系统只读，仅 `/data` 匿名历史卷与临时目录可写，并启用 `no-new-privileges`。
 
 访问：
 
@@ -88,6 +89,9 @@ curl -I http://服务器公网IP/
 ```bash
 cd Tao
 git pull
+docker compose --env-file deploy/cloud/.env -f deploy/cloud/docker-compose.yml build accordance-web
+# 仅从旧版 root 容器首次升级时执行下一行；新建数据卷可跳过
+docker compose --env-file deploy/cloud/.env -f deploy/cloud/docker-compose.yml run --rm --user root accordance-web chown -R accordance:accordance /data
 docker compose --env-file deploy/cloud/.env -f deploy/cloud/docker-compose.yml up -d --build
 ```
 
