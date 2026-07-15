@@ -196,7 +196,10 @@ async def api_method_selector(request: Request):
         data = await request.json()
     except Exception:
         data = dict(await request.form())
-    payload = MethodSelectorRequest.model_validate(data)
+    try:
+        payload = MethodSelectorRequest.model_validate(data)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
     result = recommend_methods(payload.question)
     if _wants_json(request):
         response = JSONResponse(jsonable_encoder(result))

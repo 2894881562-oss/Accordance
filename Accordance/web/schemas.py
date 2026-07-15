@@ -36,7 +36,7 @@ class DivinationRequest(BaseModel):
 
 
 class MethodSelectorRequest(BaseModel):
-    question: str = Field("", max_length=200)
+    question: str = Field(..., min_length=1, max_length=200)
 
 
 class ResultSection(BaseModel):

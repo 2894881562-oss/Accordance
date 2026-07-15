@@ -146,8 +146,38 @@
     }
   }
 
+  function renderStatus(target, message, className) {
+    const article = document.createElement("article");
+    const paragraph = document.createElement("p");
+    article.className = "panel";
+    paragraph.className = className;
+    paragraph.textContent = message;
+    article.appendChild(paragraph);
+    target.replaceChildren(article);
+  }
+
+  function normalizeErrorDetail(detail, fallback) {
+    if (typeof detail === "string" && detail.trim()) {
+      return detail;
+    }
+    if (Array.isArray(detail)) {
+      const messages = detail
+        .map(function (item) {
+          return item && typeof item.msg === "string" ? item.msg : "";
+        })
+        .filter(Boolean);
+      if (messages.length) {
+        return messages.join("；");
+      }
+    }
+    return fallback;
+  }
+
   async function submitForm(form, force) {
     const target = document.querySelector(form.dataset.target);
+    if (!target || form.dataset.submitting === "true") {
+      return;
+    }
     if (!completeRunningFocus(form)) {
       return;
     }
@@ -155,26 +185,41 @@
     if (force) {
       payload.force = true;
     }
-    target.innerHTML = '<article class="panel"><p class="muted">正在分析...</p></article>';
-    const response = await fetch(form.dataset.endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "text/html"
-      },
-      body: JSON.stringify(payload)
-    });
-    if (!response.ok) {
-      let message = "请求失败，请检查输入后重试。";
-      try {
-        const error = await response.json();
-        message = error.detail || message;
-      } catch (err) {}
-      target.innerHTML = '<article class="panel"><p class="warning">' + message + '</p></article>';
-      return;
+    const submitButton = form.querySelector('button[type="submit"]');
+    const wasDisabled = submitButton?.disabled || false;
+    form.dataset.submitting = "true";
+    if (submitButton) {
+      submitButton.disabled = true;
     }
-    target.innerHTML = await response.text();
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    renderStatus(target, "正在分析...", "muted");
+    try {
+      const response = await fetch(form.dataset.endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "text/html"
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        let message = "请求失败，请检查输入后重试。";
+        try {
+          const error = await response.json();
+          message = normalizeErrorDetail(error.detail, message);
+        } catch (error) {}
+        renderStatus(target, message, "warning");
+        return;
+      }
+      target.innerHTML = await response.text();
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (error) {
+      renderStatus(target, "网络连接失败，请确认服务仍在运行后重试。", "warning");
+    } finally {
+      form.dataset.submitting = "false";
+      if (submitButton) {
+        submitButton.disabled = wasDisabled;
+      }
+    }
   }
 
   document.addEventListener("submit", function (event) {

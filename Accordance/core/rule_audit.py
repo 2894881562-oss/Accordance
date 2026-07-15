@@ -78,6 +78,29 @@ REQUIRED_WEB_FOCUS_WIRING = {
         ),
     ),
 }
+REQUIRED_WEB_REQUEST_WIRING = {
+    "web/app.py": (
+        "Web 请求校验",
+        (
+            "except ValidationError as exc:",
+            "raise HTTPException(status_code=422, detail=exc.errors()) from exc",
+        ),
+    ),
+    "web/schemas.py": (
+        "Web 选择器输入",
+        ('question: str = Field(..., min_length=1, max_length=200)',),
+    ),
+    "web/static/app.js": (
+        "Web 错误反馈",
+        (
+            "renderStatus",
+            "normalizeErrorDetail",
+            'form.dataset.submitting === "true"',
+            "网络连接失败，请确认服务仍在运行后重试。",
+            "paragraph.textContent = message",
+        ),
+    ),
+}
 DETERMINISTIC_NO_FOCUS = {
     "modules/daily_fortune.py": "当日气运",
     "modules/name_divination.py": "姓名起卦",
@@ -202,6 +225,27 @@ def audit_focus_seed_wiring():
                 filename,
             ))
 
+    return issues
+
+
+def audit_web_request_wiring():
+    """校验 Web 校验错误、网络异常和重复提交保护。"""
+    issues = []
+    project_root = Path(__file__).resolve().parents[1]
+    for filename, (feature_name, required_tokens) in REQUIRED_WEB_REQUEST_WIRING.items():
+        path = project_root / filename
+        if not path.exists():
+            issues.append(_issue("error", "Web 请求", f"{feature_name}文件缺失", filename))
+            continue
+        text = path.read_text(encoding="utf-8")
+        missing = [token for token in required_tokens if token not in text]
+        if missing:
+            issues.append(_issue(
+                "error",
+                "Web 请求",
+                f"{feature_name}缺少统一保护",
+                f"{filename} missing={missing}",
+            ))
     return issues
 
 
@@ -571,6 +615,19 @@ def audit_method_selector_profiles():
     if len(menus) != len(set(menus)):
         issues.append(_issue("error", "起卦法选择器", "菜单编号存在重复", str(menus)))
 
+    empty_ranked = recommend_divination_methods("")
+    if (
+        not empty_ranked
+        or empty_ranked[0].get("key") != "full"
+        or any(not item.get("reason") for item in empty_ranked)
+    ):
+        issues.append(_issue(
+            "error",
+            "起卦法选择器",
+            "空问题降级推荐缺少完整原因",
+            str(empty_ranked[:3]),
+        ))
+
     project_root = Path(__file__).resolve().parents[1]
     web_services_path = project_root / "web/services.py"
     try:
@@ -878,6 +935,7 @@ def run_rule_audit():
     """运行完整规则审计。"""
     checks = [
         ("凝神入口", audit_focus_seed_wiring),
+        ("Web 请求", audit_web_request_wiring),
         ("历史记录", audit_history_wiring),
         ("姓名笔画", audit_name_stroke_data),
         ("八宫矩阵", audit_palace_hexagram_matrix),
@@ -913,7 +971,7 @@ def format_rule_audit_report(audit_result=None):
         f"错误：{result['error_count']}；警告：{result['warning_count']}",
     ]
     if not result["issues"]:
-        lines.append("凝神入口、历史记录、姓名笔画、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则、多选最优和起卦法选择器配置均已通过一致性校验。")
+        lines.append("凝神入口、Web 请求、历史记录、姓名笔画、纳甲、世应、八宫、六十四卦象义校准、八字规则、奇门规则、多选最优和起卦法选择器配置均已通过一致性校验。")
         return "\n".join(lines)
 
     for issue in result["issues"]:

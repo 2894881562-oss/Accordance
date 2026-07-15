@@ -302,8 +302,14 @@ def recommend_divination_methods(question):
     ranked.sort(key=lambda item: item["score"], reverse=True)
 
     if not text:
-        ranked[0]["score"] = max(ranked[0]["score"], 1)
-        ranked[0]["reason"] = "未输入具体问题，默认先用六爻详占承接完整问事。"
+        for item in ranked:
+            if item["key"] == "full":
+                item["score"] = 1
+                item["reason"] = "未输入具体问题，默认先用六爻详占承接完整问事。"
+            else:
+                item["score"] = 0
+                item["reason"] = item["fit"]
+        ranked.sort(key=lambda item: item["score"], reverse=True)
         return ranked
 
     if ranked[0]["score"] <= 0:
