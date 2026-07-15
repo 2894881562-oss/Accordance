@@ -30,7 +30,20 @@ app.mount("/static", StaticFiles(directory=str(WEB_DIR / "static")), name="stati
 
 RATE_WINDOW_SECONDS = 60
 RATE_LIMIT = 60
+MAX_RATE_BUCKETS = 4096
+MAX_REQUEST_BYTES = 64 * 1024
 _rate_bucket = defaultdict(deque)
+_last_rate_prune = 0.0
+
+SECURITY_HEADERS = {
+    "Cache-Control": "no-store",
+    "Content-Security-Policy": "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Referrer-Policy": "same-origin",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-Robots-Tag": "noindex, nofollow",
+}
 
 
 def _client_ip(request):
@@ -40,9 +53,27 @@ def _client_ip(request):
     return request.client.host if request.client else "unknown"
 
 
+def _prune_rate_buckets(now, incoming_key):
+    global _last_rate_prune
+    if now - _last_rate_prune >= RATE_WINDOW_SECONDS:
+        for key, bucket in list(_rate_bucket.items()):
+            while bucket and now - bucket[0] > RATE_WINDOW_SECONDS:
+                bucket.popleft()
+            if not bucket:
+                _rate_bucket.pop(key, None)
+        _last_rate_prune = now
+
+    if incoming_key not in _rate_bucket and len(_rate_bucket) >= MAX_RATE_BUCKETS:
+        overflow = len(_rate_bucket) - MAX_RATE_BUCKETS + 1
+        oldest_keys = sorted(_rate_bucket, key=lambda key: _rate_bucket[key][-1])
+        for key in oldest_keys[:overflow]:
+            _rate_bucket.pop(key, None)
+
+
 def _rate_limit(request, client_id):
     key = f"{_client_ip(request)}:{client_id}"
     now = time.time()
+    _prune_rate_buckets(now, key)
     bucket = _rate_bucket[key]
     while bucket and now - bucket[0] > RATE_WINDOW_SECONDS:
         bucket.popleft()
@@ -55,6 +86,12 @@ def _ensure_client_id(request):
     return normalize_client_id(request.cookies.get("client_id", ""))
 
 
+def _apply_security_headers(response):
+    for name, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(name, value)
+    return response
+
+
 def _with_client_cookie(response, client_id):
     response.set_cookie(
         "client_id",
@@ -63,11 +100,7 @@ def _with_client_cookie(response, client_id):
         httponly=True,
         samesite="lax",
     )
-    response.headers["Cache-Control"] = "no-store"
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Referrer-Policy"] = "same-origin"
-    response.headers["X-Robots-Tag"] = "noindex, nofollow"
-    return response
+    return _apply_security_headers(response)
 
 
 def _wants_json(request):
@@ -76,12 +109,18 @@ def _wants_json(request):
 
 @app.middleware("http")
 async def privacy_headers(request, call_next):
-    response = await call_next(request)
-    response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("Referrer-Policy", "same-origin")
-    response.headers.setdefault("Cache-Control", "no-store")
-    response.headers.setdefault("X-Robots-Tag", "noindex, nofollow")
-    return response
+    content_length = request.headers.get("content-length", "")
+    oversized = content_length.isdigit() and int(content_length) > MAX_REQUEST_BYTES
+    if not oversized and request.method in {"POST", "PUT", "PATCH"}:
+        oversized = len(await request.body()) > MAX_REQUEST_BYTES
+    if oversized:
+        response = JSONResponse(
+            status_code=413,
+            content={"detail": "请求内容过大，请精简后重试"},
+        )
+    else:
+        response = await call_next(request)
+    return _apply_security_headers(response)
 
 
 @app.get("/health")

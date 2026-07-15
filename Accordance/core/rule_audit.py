@@ -84,6 +84,14 @@ REQUIRED_WEB_REQUEST_WIRING = {
         (
             "except ValidationError as exc:",
             "raise HTTPException(status_code=422, detail=exc.errors()) from exc",
+            "MAX_RATE_BUCKETS = 4096",
+            "MAX_REQUEST_BYTES = 64 * 1024",
+            "_prune_rate_buckets",
+            '"Content-Security-Policy"',
+            '"Permissions-Policy"',
+            '"X-Frame-Options": "DENY"',
+            "status_code=413",
+            "len(await request.body()) > MAX_REQUEST_BYTES",
         ),
     ),
     "web/schemas.py": (
