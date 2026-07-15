@@ -27,13 +27,14 @@
         <input name="ming" maxlength="24" required placeholder="例：明">
       </label>
       <div class="split">
-        <label>姓氏笔画
-          <input name="xing_stroke" type="number" min="1" max="99" required>
+        <label>姓氏总笔画（可选）
+          <input name="xing_stroke" type="number" min="1" max="999" placeholder="留空则自动识别">
         </label>
-        <label>名字笔画
-          <input name="ming_stroke" type="number" min="1" max="99" required>
+        <label>名字总笔画（可选）
+          <input name="ming_stroke" type="number" min="1" max="999" placeholder="留空则自动识别">
         </label>
       </div>
+      <p class="muted">系统优先按内置康熙/Unihan 数据自动合计；遇到未收录字时，再手动填写对应总笔画。</p>
     {% endif %}
 
     {% if key == "item" %}

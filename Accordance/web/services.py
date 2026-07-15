@@ -4,6 +4,7 @@
 import datetime
 from typing import Any, Dict, List
 
+from config.name_strokes import analyze_text_strokes
 from core.bazi import analyze_bazi_birth
 from core.divination import (
     daily_guidance_gua,
@@ -66,6 +67,26 @@ def _clean(text, default="", limit=200):
     if not value:
         value = default
     return value[:limit]
+
+
+def _resolve_name_strokes(text, provided, label):
+    analysis = analyze_text_strokes(text)
+    if provided is not None:
+        return provided, "手动提供", analysis
+    if analysis["missing"]:
+        missing = "、".join(dict.fromkeys(analysis["missing"]))
+        raise ValueError(f"系统暂未识别{label}中的「{missing}」，请手动填写{label}总笔画")
+    if analysis["total"] <= 0:
+        raise ValueError(f"无法识别{label}笔画，请手动填写{label}总笔画")
+    return analysis["total"], "系统自动识别", analysis
+
+
+def _stroke_breakdown(analysis):
+    return " + ".join(
+        f"{item['char']}{item['stroke']}画"
+        for item in analysis["details"]
+        if item["stroke"] is not None
+    )
 
 
 def _section(title, items):
@@ -386,10 +407,20 @@ def _run_quick(payload, client_id):
 
 
 def _run_name(payload, client_id):
-    xing = _clean(payload.xing, "未命名姓氏", 24)
-    ming = _clean(payload.ming, "未命名名字", 24)
-    if payload.xing_stroke is None or payload.ming_stroke is None:
-        raise ValueError("姓名起卦需要填写姓氏和名字笔画数")
+    xing = _clean(payload.xing, "", 24)
+    ming = _clean(payload.ming, "", 24)
+    if not xing or not ming:
+        raise ValueError("姓名起卦需要填写姓氏和名字")
+    xing_stroke, xing_source, xing_analysis = _resolve_name_strokes(
+        xing,
+        payload.xing_stroke,
+        "姓氏",
+    )
+    ming_stroke, ming_source, ming_analysis = _resolve_name_strokes(
+        ming,
+        payload.ming_stroke,
+        "名字",
+    )
     question = _name_history_prefix(xing, ming)
     duplicate = _gate_duplicate(
         client_id,
@@ -401,14 +432,16 @@ def _run_name(payload, client_id):
     if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not payload.force:
         return _blocked_response(question, duplicate)
 
-    history_question = _name_history_question(xing, ming, payload.xing_stroke, payload.ming_stroke)
-    info = name_qi_gua(xing, ming, payload.xing_stroke, payload.ming_stroke)
+    history_question = _name_history_question(xing, ming, xing_stroke, ming_stroke)
+    info = name_qi_gua(xing, ming, xing_stroke, ming_stroke)
     result = interpret_hexagram(info)
     sections = _hexagram_sections(result)
     sections.insert(0, _section("姓名信息", [
         f"姓名：{xing}{ming}",
-        f"姓氏笔画：{payload.xing_stroke}",
-        f"名字笔画：{payload.ming_stroke}",
+        f"姓氏笔画：{xing_stroke}（{xing_source}）",
+        f"名字笔画：{ming_stroke}（{ming_source}）",
+        f"姓氏拆分：{_stroke_breakdown(xing_analysis)}" if xing_source == "系统自动识别" else "",
+        f"名字拆分：{_stroke_breakdown(ming_analysis)}" if ming_source == "系统自动识别" else "",
     ]))
     summary = f"{xing}{ming}：{result['gua_name']}（{result['ji_xiong']}）"
     recorded = _record_if_needed(client_id, history_question, "姓名起卦", summary)
@@ -416,7 +449,11 @@ def _run_name(payload, client_id):
         "plain_conclusion": result["plain_conclusion"],
         "summary": summary,
         "sections": sections,
-        "raw_result": {"hexagram": result, "input": info},
+        "raw_result": {
+            "hexagram": result,
+            "input": info,
+            "stroke_source": {"xing": xing_source, "ming": ming_source},
+        },
         "duplicate_check": duplicate,
         "history_recorded": recorded,
     }

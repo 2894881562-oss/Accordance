@@ -101,6 +101,21 @@ REQUIRED_WEB_REQUEST_WIRING = {
         ),
     ),
 }
+REQUIRED_WEB_NAME_STROKE_WIRING = {
+    "web/services.py": (
+        "analyze_text_strokes",
+        "_resolve_name_strokes",
+        "系统自动识别",
+        "_stroke_breakdown",
+        '"stroke_source": {"xing": xing_source, "ming": ming_source}',
+    ),
+    "web/schemas.py": ("xing_stroke: Optional[int] = Field(None, ge=1, le=999)",),
+    "web/templates/feature.html": (
+        'name="xing_stroke" type="number" min="1" max="999" placeholder="留空则自动识别"',
+        'name="ming_stroke" type="number" min="1" max="999" placeholder="留空则自动识别"',
+        "系统优先按内置康熙/Unihan 数据自动合计",
+    ),
+}
 DETERMINISTIC_NO_FOCUS = {
     "modules/daily_fortune.py": "当日气运",
     "modules/name_divination.py": "姓名起卦",
@@ -397,6 +412,19 @@ def audit_name_stroke_data():
             "张三自动笔画合计错误",
             str(zhang_san),
         ))
+
+    project_root = Path(__file__).resolve().parents[1]
+    for filename, required_tokens in REQUIRED_WEB_NAME_STROKE_WIRING.items():
+        path = project_root / filename
+        text = path.read_text(encoding="utf-8") if path.exists() else ""
+        missing = [token for token in required_tokens if token not in text]
+        if missing:
+            issues.append(_issue(
+                "error",
+                "姓名笔画",
+                "Web 姓名起卦未复用自动笔画能力",
+                f"{filename} missing={missing}",
+            ))
 
     return issues
 

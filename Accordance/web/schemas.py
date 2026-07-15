@@ -14,8 +14,8 @@ class DivinationRequest(BaseModel):
 
     xing: Optional[str] = Field("", max_length=24)
     ming: Optional[str] = Field("", max_length=24)
-    xing_stroke: Optional[int] = Field(None, ge=1, le=99)
-    ming_stroke: Optional[int] = Field(None, ge=1, le=99)
+    xing_stroke: Optional[int] = Field(None, ge=1, le=999)
+    ming_stroke: Optional[int] = Field(None, ge=1, le=999)
 
     item_name: Optional[str] = Field("", max_length=80)
     last_place: Optional[str] = Field("", max_length=120)
