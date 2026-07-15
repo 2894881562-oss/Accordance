@@ -3,7 +3,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class DivinationRequest(BaseModel):
@@ -37,6 +37,14 @@ class DivinationRequest(BaseModel):
 
 class MethodSelectorRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=200)
+
+    @field_validator("question")
+    @classmethod
+    def validate_question(cls, value):
+        question = value.strip()
+        if not question:
+            raise ValueError("请填写所问之事")
+        return question
 
 
 class ResultSection(BaseModel):

@@ -125,9 +125,14 @@ def parse_birth_datetime(birth_date, birth_hour, birth_minute=0):
         year, month, day = [int(part) for part in str(birth_date).split("-")]
         hour = int(birth_hour)
         minute = int(birth_minute or 0)
-        return datetime.datetime(year, month, day, hour, minute)
+        solar = datetime.datetime(year, month, day, hour, minute)
     except (TypeError, ValueError) as exc:
         raise ValueError("出生日期格式应为 YYYY-MM-DD，小时为 0-23，分钟为 0-59") from exc
+    if solar.year < 2:
+        raise ValueError("出生年份不能早于公元 2 年")
+    if solar.date() > datetime.date.today():
+        raise ValueError("出生日期不能晚于今天")
+    return solar
 
 
 def get_ten_god(day_gan, target_gan):

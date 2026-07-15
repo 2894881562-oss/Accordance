@@ -1,7 +1,11 @@
+import datetime
 import unittest
 from unittest.mock import patch
 
-from web.schemas import DivinationRequest
+from pydantic import ValidationError
+
+from core.bazi import parse_birth_datetime
+from web.schemas import DivinationRequest, MethodSelectorRequest
 from web.services import _gate_duplicate, run_divination
 
 
@@ -61,6 +65,19 @@ class WebServiceTests(unittest.TestCase):
             ), "client")
         with self.assertRaises(ValueError):
             run_divination("full", DivinationRequest(question="q"), "client")
+
+    def test_method_selector_rejects_blank_and_trims_question(self):
+        with self.assertRaises(ValidationError):
+            MethodSelectorRequest.model_validate({"question": "   "})
+        payload = MethodSelectorRequest.model_validate({"question": "  是否出行  "})
+        self.assertEqual(payload.question, "是否出行")
+
+    def test_birth_date_rejects_unsupported_or_future_date(self):
+        with self.assertRaisesRegex(ValueError, "公元 2 年"):
+            parse_birth_datetime("0001-01-01", 0)
+        tomorrow = datetime.date.today() + datetime.timedelta(days=1)
+        with self.assertRaisesRegex(ValueError, "不能晚于今天"):
+            parse_birth_datetime(tomorrow.isoformat(), 0)
 
 
 if __name__ == "__main__":
