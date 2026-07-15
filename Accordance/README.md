@@ -40,7 +40,7 @@ python main.py
 
 ```bash
 cd ..
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 cd Accordance
 uvicorn web.app:app --host 0.0.0.0 --port 8000
 ```

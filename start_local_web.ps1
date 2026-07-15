@@ -50,7 +50,7 @@ Set-Location $ProjectRoot
 python -B -c "import fastapi, uvicorn, jinja2, multipart" 2>$null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Web dependencies are missing. Run this once:"
-    Write-Host "  pip install -r requirements.txt"
+    Write-Host "  python -m pip install -r requirements.txt"
     exit 1
 }
 

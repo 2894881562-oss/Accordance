@@ -164,7 +164,7 @@ http://电脑局域网IP:8000
 也可以手动启动：
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 cd Accordance
 uvicorn web.app:app --host 0.0.0.0 --port 8000
 ```
@@ -290,7 +290,7 @@ python -m unittest discover -s tests -v
 - `zhdate`：提供精确农历年月日。若未安装，自动降级为公历近似，不影响运行。
 
 ```bash
-pip install zhdate
+python -m pip install zhdate
 ```
 
 ## 公开仓库说明

@@ -225,6 +225,7 @@ REQUIRED_DEPLOYMENT_WIRING = {
     ),
     "start_local_web.ps1": (
         "import fastapi, uvicorn, jinja2, multipart",
+        "python -m pip install -r requirements.txt",
         "Get-NetTCPConnection -LocalPort 8000 -State Listen",
     ),
 }
