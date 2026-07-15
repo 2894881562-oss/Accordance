@@ -177,6 +177,10 @@ DETERMINISTIC_NO_FOCUS = {
     "modules/method_selector.py": "起卦法选择器",
 }
 REQUIRED_HISTORY_WIRING = {
+    "core/question_history.py": (
+        "历史原子持久化",
+        ("tempfile.NamedTemporaryFile", "f.flush()", "os.fsync", "os.replace", "os.remove"),
+    ),
     "modules/full_divination.py": ("六爻详占", ("handle_duplicate_check", "record_question")),
     "modules/quick_divination.py": ("三爻快占", ("handle_duplicate_check", "record_question")),
     "modules/name_divination.py": ("姓名起卦", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="prefix"')),

@@ -14,6 +14,7 @@ import re
 import os
 import json
 import datetime
+import tempfile
 
 
 # ═══════════════════════════════════════════════════════════
@@ -508,14 +509,33 @@ class QuestionHistory:
         if self._disabled:
             return False
         self._history = _compact_history(self._history)
+        temp_path = ""
         try:
             directory = os.path.dirname(self._history_file)
             if directory:
                 os.makedirs(directory, exist_ok=True)
-            with open(self._history_file, "w", encoding="utf-8") as f:
+            temp_directory = directory or "."
+            prefix = f".{os.path.basename(self._history_file)}."
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=temp_directory,
+                prefix=prefix,
+                suffix=".tmp",
+                delete=False,
+            ) as f:
+                temp_path = f.name
                 json.dump(self._history, f, ensure_ascii=False, separators=(",", ":"))
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temp_path, self._history_file)
             return True
         except (IOError, OSError):
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
             return False
 
     def check_duplicate(self, question, module_name):
