@@ -13,6 +13,7 @@ import time
 import re
 import os
 import json
+import math
 import datetime
 import tempfile
 
@@ -57,6 +58,7 @@ MAX_QUESTION_CHARS = 120
 MAX_SUMMARY_CHARS = 120
 MAX_CONTEXT_CHARS = 180
 MAX_MODULE_CHARS = 24
+MAX_FUTURE_TIMESTAMP_SKEW = 5 * 60
 
 
 SIMILARITY_BANDS = [
@@ -432,22 +434,39 @@ def _truncate_text(text, limit):
     return text[: max(0, limit - 1)] + "…"
 
 
+def _valid_history_timestamp(value, now):
+    """校验历史时间戳可转换、有限且未明显超前。"""
+    try:
+        timestamp = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(timestamp) or timestamp <= 0:
+        return None
+    if timestamp > now + MAX_FUTURE_TIMESTAMP_SKEW:
+        return None
+    try:
+        datetime.datetime.fromtimestamp(timestamp)
+    except (OverflowError, OSError, ValueError):
+        return None
+    return timestamp
+
+
 def _compact_entry(entry):
     """兼容旧格式并压缩单条历史记录。"""
-    timestamp = entry.get("t", entry.get("timestamp", 0))
-    try:
-        timestamp = float(timestamp)
-    except (TypeError, ValueError):
-        timestamp = 0
-
-    if not timestamp:
+    now = time.time()
+    timestamp = _valid_history_timestamp(
+        entry.get("t", entry.get("timestamp", 0)),
+        now,
+    )
+    if timestamp is None:
         dt_text = entry.get("dt") or entry.get("datetime", "")
         try:
-            timestamp = datetime.datetime.strptime(dt_text, "%Y-%m-%d %H:%M:%S").timestamp()
-        except (TypeError, ValueError):
-            timestamp = time.time()
+            parsed = datetime.datetime.strptime(dt_text, "%Y-%m-%d %H:%M:%S").timestamp()
+        except (TypeError, ValueError, OverflowError, OSError):
+            parsed = None
+        timestamp = _valid_history_timestamp(parsed, now) or now
 
-    dt = entry.get("dt") or entry.get("datetime") or datetime.datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
+    dt = datetime.datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
     compacted = {
         "v": HISTORY_SCHEMA_VERSION,
         "q": _truncate_text(entry.get("q") or entry.get("question", ""), MAX_QUESTION_CHARS),

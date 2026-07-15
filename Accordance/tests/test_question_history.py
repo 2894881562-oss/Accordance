@@ -1,3 +1,4 @@
+import datetime
 import io
 import unittest
 from contextlib import redirect_stdout
@@ -72,6 +73,20 @@ class QuestionHistoryTests(unittest.TestCase):
         })
         self.assertEqual(compacted["v"], HISTORY_SCHEMA_VERSION)
         self.assertNotIn("c", compacted)
+
+    def test_invalid_or_future_timestamp_falls_back_safely(self):
+        now = 1_700_000_000.0
+        with patch("core.question_history.time.time", return_value=now):
+            for invalid in (float("nan"), float("inf"), -1e300, 1e300, now + 301):
+                with self.subTest(timestamp=invalid):
+                    compacted = _compact_entry({
+                        "question": "question",
+                        "module": "module",
+                        "timestamp": invalid,
+                        "result_summary": "result",
+                    })
+                    self.assertEqual(compacted["t"], now)
+                    datetime.datetime.strptime(compacted["dt"], "%Y-%m-%d %H:%M:%S")
 
     def test_disabled_history_returns_false_and_explains(self):
         disabled = Mock()
