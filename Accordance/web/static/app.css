@@ -285,6 +285,10 @@ button:disabled {
   padding: 12px 0;
 }
 
+.detail-count {
+  margin-bottom: 6px;
+}
+
 .detail summary {
   cursor: pointer;
   font-weight: 900;

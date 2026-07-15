@@ -20,9 +20,12 @@
     <p>{{ result.plain_conclusion }}</p>
   </section>
 
+  {% if result.sections %}
+    <p class="muted detail-count">详细分析共 {{ result.sections|length }} 节，默认收起，请按需展开。</p>
+  {% endif %}
   {% for section in result.sections %}
     {% if section["items"] %}
-      <details class="detail" {% if loop.index <= 2 %}open{% endif %}>
+      <details class="detail">
         <summary>{{ section.title }}</summary>
         <ul>
           {% for item in section["items"] %}

@@ -129,6 +129,13 @@ REQUIRED_WEB_REQUEST_WIRING = {
         "Web 键盘焦点",
         (":focus-visible", "outline: 3px solid var(--gold)"),
     ),
+    "web/templates/partials/result.html": (
+        "Web 结论优先",
+        (
+            "详细分析共 {{ result.sections|length }} 节，默认收起，请按需展开。",
+            '<details class="detail">',
+        ),
+    ),
 }
 REQUIRED_WEB_NAME_STROKE_WIRING = {
     "web/services.py": (
@@ -325,6 +332,14 @@ def audit_web_request_wiring():
                 "严格内容策略下不应使用内联事件处理器",
                 str(path.relative_to(project_root)),
             ))
+    result_template = (templates_root / "partials/result.html").read_text(encoding="utf-8")
+    if re.search(r'<details class="detail"[^>]+open', result_template):
+        issues.append(_issue(
+            "error",
+            "Web 请求",
+            "详细分析应默认收起以保持结论优先",
+            "web/templates/partials/result.html",
+        ))
     return issues
 
 
