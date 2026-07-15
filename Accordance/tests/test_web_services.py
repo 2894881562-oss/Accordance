@@ -10,6 +10,69 @@ from web.services import _gate_duplicate, run_divination
 
 
 class WebServiceTests(unittest.TestCase):
+    def test_all_feature_happy_paths_share_response_contract(self):
+        cases = {
+            "full": DivinationRequest(
+                question="project progress",
+                external_omen="bird",
+                focus_seed=1234,
+            ),
+            "quick": DivinationRequest(question="submit today", focus_seed=1234),
+            "name": DivinationRequest(xing="李", ming="明"),
+            "daily": DivinationRequest(),
+            "item": DivinationRequest(
+                item_name="keys",
+                last_place="desk",
+                item_feature="silver",
+                search_scope="1",
+                focus_seed=1234,
+            ),
+            "decision": DivinationRequest(
+                question="travel choice",
+                option_a="train",
+                option_b="plane",
+                focus_seed=1234,
+            ),
+            "multi_decision": DivinationRequest(
+                question="choose plan",
+                options_text="alpha\nbeta\ngamma",
+                focus_seed=1234,
+            ),
+            "bazi": DivinationRequest(
+                birth_date="1990-01-01",
+                birth_hour=12,
+                birth_minute=30,
+                gender="男",
+            ),
+            "qimen": DivinationRequest(
+                question="negotiation",
+                direction="东南",
+                qimen_mode="谈判",
+                focus_seed=1234,
+            ),
+        }
+        no_duplicate = {
+            "is_duplicate": False,
+            "action": "none",
+            "confirmation_required": False,
+        }
+
+        with patch("web.services.check_duplicate", return_value=no_duplicate), patch(
+            "web.services.record_question", return_value=False
+        ):
+            for key, payload in cases.items():
+                with self.subTest(feature=key):
+                    result = run_divination(key, payload, "client")
+                    self.assertTrue(result["plain_conclusion"])
+                    self.assertTrue(result["summary"])
+                    self.assertTrue(result["sections"])
+                    self.assertIsInstance(result["raw_result"], dict)
+                    self.assertIsInstance(result["duplicate_check"], dict)
+                    self.assertIs(result["history_recorded"], False)
+                    for section in result["sections"]:
+                        self.assertTrue(section["title"])
+                        self.assertIsInstance(section["items"], list)
+
     def test_full_and_quick_keep_question_and_context_separate(self):
         checks = []
         records = []
