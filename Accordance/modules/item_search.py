@@ -98,6 +98,25 @@ def _plain_item_conclusion(gua_name, tips, search_scope):
     return f"优先在{gua_name}方位找，重点查“{first_tip}”。先别扩大范围，从最后出现处逐层排查。"
 
 
+def _item_history_question(
+    item_name,
+    last_place,
+    item_feature,
+    search_scope,
+    external_omen="",
+):
+    """生成可复用的寻物历史键，保留所有影响结果的业务资料。"""
+    parts = [
+        f"寻物：{item_name}",
+        f"最后位置：{last_place}",
+        f"特征：{item_feature}",
+        f"范围：{search_scope}",
+    ]
+    if external_omen:
+        parts.append(f"外应：{external_omen}")
+    return "｜".join(parts)
+
+
 def run_item_search():
     """运行寻物专项占流程"""
     print()
@@ -122,9 +141,12 @@ def run_item_search():
     external_omen = input("若有外应请输入，无则回车：").strip()
 
     question_text = f"寻找{item_name}"
-    history_question = (
-        f"寻物：{item_name}｜最后位置：{last_place}｜"
-        f"特征：{item_feature}｜范围：{search_scope}"
+    history_question = _item_history_question(
+        item_name,
+        last_place,
+        item_feature,
+        search_scope,
+        external_omen,
     )
 
     print("\n请静心回想最后一次见到该物品的位置。")

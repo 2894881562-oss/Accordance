@@ -21,12 +21,19 @@ from core.qi_context import get_accurate_day_ganzhi
 from modules.daily_fortune import _plain_daily_conclusion
 from modules.bazi import _bazi_history_question, _bazi_history_summary
 from modules.decision_helper import (
+    _decision_history_question,
     _option_qi_gua,
     _option_score,
     _plain_decision_conclusion,
     _risk_tip,
 )
-from modules.item_search import _hint, _item_tips, _likelihood, _plain_item_conclusion
+from modules.item_search import (
+    _hint,
+    _item_history_question,
+    _item_tips,
+    _likelihood,
+    _plain_item_conclusion,
+)
 from modules.multi_decision import (
     _multi_history_question,
     _plain_multi_conclusion,
@@ -514,9 +521,16 @@ def _run_item(payload, client_id):
     )
     external_omen = _clean(payload.external_omen, "", 160)
     question = f"寻找{item_name}"
-    duplicate = _gate_duplicate(client_id, question, "寻物专项占", payload.force)
+    question_key = f"寻物：{item_name}"
+    duplicate = _gate_duplicate(
+        client_id,
+        question_key,
+        "寻物专项占",
+        payload.force,
+        match_mode="prefix",
+    )
     if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not payload.force:
-        return _blocked_response(question, duplicate)
+        return _blocked_response(question_key, duplicate)
 
     extra = f"{item_name}|{last_place}|{item_feature}|范围:{search_scope}|外应:{external_omen}"
     info = dynamic_three_yao_quick_divination(
@@ -547,7 +561,14 @@ def _run_item(payload, client_id):
         ]),
     ])
     summary = f"得{gua_info['name']}卦，方位{gua_info['position']}"
-    recorded = _record_if_needed(client_id, question, "寻物专项占", summary)
+    history_question = _item_history_question(
+        item_name,
+        last_place,
+        item_feature,
+        search_scope,
+        external_omen,
+    )
+    recorded = _record_if_needed(client_id, history_question, "寻物专项占", summary)
     return {
         "plain_conclusion": plain,
         "summary": summary,
@@ -564,9 +585,16 @@ def _run_decision(payload, client_id):
     option_b = _required_text(payload.option_b, "选项 B", 120)
     if option_a.casefold() == option_b.casefold():
         raise ValueError("选项 A 与选项 B 不能相同")
-    duplicate = _gate_duplicate(client_id, question, "二选一决策", payload.force)
+    question_key = f"二选一：{question}"
+    duplicate = _gate_duplicate(
+        client_id,
+        question_key,
+        "二选一决策",
+        payload.force,
+        match_mode="prefix",
+    )
     if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not payload.force:
-        return _blocked_response(question, duplicate)
+        return _blocked_response(question_key, duplicate)
 
     result_a = interpret_hexagram(_option_qi_gua(question, option_a, payload.focus_seed))
     score_a = _option_score(result_a)
@@ -601,7 +629,8 @@ def _run_decision(payload, client_id):
         f"A「{option_a}」→ {result_a['gua_name']}（{result_a['ji_xiong']}），"
         f"B「{option_b}」→ {result_b['gua_name']}（{result_b['ji_xiong']}）"
     )
-    recorded = _record_if_needed(client_id, question, "二选一决策", summary)
+    history_question = _decision_history_question(question, option_a, option_b)
+    recorded = _record_if_needed(client_id, history_question, "二选一决策", summary)
     return {
         "plain_conclusion": plain,
         "summary": summary,

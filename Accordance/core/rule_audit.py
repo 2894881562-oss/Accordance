@@ -178,8 +178,8 @@ REQUIRED_HISTORY_WIRING = {
     "modules/full_divination.py": ("六爻详占", ("handle_duplicate_check", "record_question")),
     "modules/quick_divination.py": ("三爻快占", ("handle_duplicate_check", "record_question")),
     "modules/name_divination.py": ("姓名起卦", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="prefix"')),
-    "modules/item_search.py": ("寻物专项占", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="prefix"')),
-    "modules/decision_helper.py": ("二选一决策", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="prefix"')),
+    "modules/item_search.py": ("寻物专项占", ("handle_duplicate_check", "record_question", "_item_history_question", "allow_rephrase=False", 'match_mode="prefix"')),
+    "modules/decision_helper.py": ("二选一决策", ("handle_duplicate_check", "record_question", "_decision_history_question", "allow_rephrase=False", 'match_mode="prefix"')),
     "modules/multi_decision.py": ("多选最优决策", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="prefix"')),
     "modules/bazi.py": ("四柱八字", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="exact"')),
     "modules/qimen.py": ("奇门运筹", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="prefix"')),
@@ -190,7 +190,7 @@ REQUIRED_WEB_HISTORY_WIRING = {
         ("match_mode=\"semantic\"", "match_mode=match_mode"),
     ),
     "web/services.py": (
-        "Web 姓名与八字",
+        "Web 问事历史键",
         (
             "_name_history_prefix",
             "_name_history_question",
@@ -205,6 +205,8 @@ REQUIRED_WEB_HISTORY_WIRING = {
             "_qimen_history_summary",
             "_run_qimen",
             "_plain_qimen_conclusion",
+            "_item_history_question",
+            "_decision_history_question",
         ),
     ),
     "web/templates/history.html": (
