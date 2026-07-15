@@ -279,6 +279,13 @@ CLI 每次先显示简短结论，压缩为倾向判断、现在该怎么做、�
 
 项目尽量不强依赖外部库。核心功能纯 Python 3 标准库即可运行。
 
+在 `Accordance` 目录运行标准库回归测试；测试使用内存对象和 mocks，不写入正式问题历史：
+
+```bash
+cd Accordance
+python -m unittest discover -s tests -v
+```
+
 可选依赖：
 - `zhdate`：提供精确农历年月日。若未安装，自动降级为公历近似，不影响运行。
 
