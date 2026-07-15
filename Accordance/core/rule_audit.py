@@ -497,6 +497,17 @@ def audit_history_wiring():
                 f"{filename} missing={missing_tokens}",
             ))
 
+    web_history_path = project_root / "web/history_store.py"
+    if web_history_path.exists():
+        web_history_text = web_history_path.read_text(encoding="utf-8")
+        if "os.makedirs(path" in web_history_text:
+            issues.append(_issue(
+                "error",
+                "历史记录",
+                "Web 历史目录不应在复问检查前创建，以免存储故障阻断分析",
+                "web/history_store.py",
+            ))
+
     web_services_path = project_root / "web/services.py"
     if web_services_path.exists():
         web_services_text = web_services_path.read_text(encoding="utf-8")

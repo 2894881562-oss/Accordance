@@ -19,14 +19,13 @@ _LOCK = threading.Lock()
 
 
 def web_data_dir():
-    """返回 Web 匿名历史目录。"""
+    """返回 Web 匿名历史目录；实际建目录由可容错的保存流程负责。"""
     configured = os.getenv("ACCORDANCE_WEB_DATA_DIR")
     if configured:
         path = configured
     else:
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         path = os.path.join(base, ".data", "web_clients")
-    os.makedirs(path, exist_ok=True)
     return path
 
 
