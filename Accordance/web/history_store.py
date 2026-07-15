@@ -53,9 +53,14 @@ def get_history(client_id):
     return QuestionHistory(history_file=_history_file(client_id))
 
 
-def check_duplicate(client_id, question, module_label):
+def check_duplicate(client_id, question, module_label, match_mode="semantic"):
     with _LOCK:
-        return build_duplicate_decision(question, module_label, get_history(client_id))
+        return build_duplicate_decision(
+            question,
+            module_label,
+            get_history(client_id),
+            match_mode=match_mode,
+        )
 
 
 def record_question(client_id, question, module_label, result_summary):

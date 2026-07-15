@@ -661,12 +661,16 @@ def get_session_history():
     return _session_history
 
 
-def build_duplicate_decision(question, module_label, history=None):
+def build_duplicate_decision(question, module_label, history=None, match_mode="semantic"):
     """返回非交互式复问判定，供 Web/API 层自行渲染和确认。"""
     history = history or get_session_history()
-    is_dup, matched, sim_score, action, days_ago, band = history.check_duplicate(
-        question, module_label
-    )
+    if match_mode == "exact":
+        check = history.check_exact_duplicate
+    elif match_mode == "prefix":
+        check = history.check_prefix_duplicate
+    else:
+        check = history.check_duplicate
+    is_dup, matched, sim_score, action, days_ago, band = check(question, module_label)
 
     if not is_dup or not matched or not band:
         return {

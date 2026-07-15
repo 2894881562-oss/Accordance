@@ -16,6 +16,7 @@ from core.method_selector import format_method_recommendation, recommend_divinat
 from core.question_precheck import build_question_profile, format_question_profile
 from core.qi_context import get_accurate_day_ganzhi
 from modules.daily_fortune import _plain_daily_conclusion
+from modules.bazi import _bazi_history_question, _bazi_history_summary
 from modules.decision_helper import (
     _option_qi_gua,
     _option_score,
@@ -23,6 +24,7 @@ from modules.decision_helper import (
     _risk_tip,
 )
 from modules.item_search import _hint, _item_tips, _likelihood, _plain_item_conclusion
+from modules.name_divination import _name_history_prefix, _name_history_question
 from web.history_store import check_duplicate, record_question
 
 
@@ -214,8 +216,8 @@ def _record_if_needed(client_id, question, module_label, summary, should_record=
     return should_record
 
 
-def _gate_duplicate(client_id, question, module_label, force):
-    duplicate = check_duplicate(client_id, question, module_label)
+def _gate_duplicate(client_id, question, module_label, force, match_mode="semantic"):
+    duplicate = check_duplicate(client_id, question, module_label, match_mode=match_mode)
     if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not force:
         return duplicate
     return duplicate
@@ -318,7 +320,18 @@ def _run_name(payload, client_id):
     ming = _clean(payload.ming, "未命名名字", 24)
     if payload.xing_stroke is None or payload.ming_stroke is None:
         raise ValueError("姓名起卦需要填写姓氏和名字笔画数")
-    question = f"姓名起卦：{xing}{ming}"
+    question = _name_history_prefix(xing, ming)
+    duplicate = _gate_duplicate(
+        client_id,
+        question,
+        "姓名起卦",
+        payload.force,
+        match_mode="prefix",
+    )
+    if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not payload.force:
+        return _blocked_response(question, duplicate)
+
+    history_question = _name_history_question(xing, ming, payload.xing_stroke, payload.ming_stroke)
     info = name_qi_gua(xing, ming, payload.xing_stroke, payload.ming_stroke)
     result = interpret_hexagram(info)
     sections = _hexagram_sections(result)
@@ -328,13 +341,13 @@ def _run_name(payload, client_id):
         f"名字笔画：{payload.ming_stroke}",
     ]))
     summary = f"{xing}{ming}：{result['gua_name']}（{result['ji_xiong']}）"
-    recorded = _record_if_needed(client_id, question, "姓名起卦", summary)
+    recorded = _record_if_needed(client_id, history_question, "姓名起卦", summary)
     return {
         "plain_conclusion": result["plain_conclusion"],
         "summary": summary,
         "sections": sections,
         "raw_result": {"hexagram": result, "input": info},
-        "duplicate_check": {"is_duplicate": False, "action": "none"},
+        "duplicate_check": duplicate,
         "history_recorded": recorded,
     }
 
@@ -477,20 +490,39 @@ def _run_decision(payload, client_id):
 
 
 def _run_bazi(payload, client_id):
+    if payload.birth_hour is None:
+        raise ValueError("四柱八字需要填写出生小时")
+    birth_minute = payload.birth_minute or 0
+    history_question = _bazi_history_question(
+        payload.birth_date,
+        payload.birth_hour,
+        birth_minute,
+        payload.gender,
+    )
+    duplicate = _gate_duplicate(
+        client_id,
+        history_question,
+        "四柱八字",
+        payload.force,
+        match_mode="exact",
+    )
+    if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not payload.force:
+        return _blocked_response(history_question, duplicate)
+
     result = analyze_bazi_birth(
         payload.birth_date,
         payload.birth_hour,
-        payload.birth_minute,
+        birth_minute,
         payload.gender,
     )
     summary = f"{result['birth']['date']} {result['birth']['time']}：{result['bazi']}"
-    record_question(client_id, f"八字分析：{summary}", "四柱八字", result["plain_conclusion"])
+    record_question(client_id, history_question, "四柱八字", _bazi_history_summary(result))
     return {
         "plain_conclusion": result["plain_conclusion"],
         "summary": summary,
         "sections": _bazi_sections(result),
         "raw_result": {"bazi": result},
-        "duplicate_check": {"is_duplicate": False, "action": "none"},
+        "duplicate_check": duplicate,
         "history_recorded": True,
     }
 

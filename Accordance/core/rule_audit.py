@@ -86,6 +86,23 @@ REQUIRED_HISTORY_WIRING = {
     "modules/bazi.py": ("四柱八字", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="exact"')),
     "modules/qimen.py": ("奇门运筹", ("handle_duplicate_check", "record_question", "allow_rephrase=False", 'match_mode="prefix"')),
 }
+REQUIRED_WEB_HISTORY_WIRING = {
+    "web/history_store.py": (
+        "Web 复问匹配",
+        ("match_mode=\"semantic\"", "match_mode=match_mode"),
+    ),
+    "web/services.py": (
+        "Web 姓名与八字",
+        (
+            "_name_history_prefix",
+            "_name_history_question",
+            'match_mode="prefix"',
+            "_bazi_history_question",
+            "_bazi_history_summary",
+            'match_mode="exact"',
+        ),
+    ),
+}
 DETERMINISTIC_NO_HISTORY = {
     "modules/daily_fortune.py": "当日气运",
     "modules/method_selector.py": "起卦法选择器",
@@ -164,6 +181,22 @@ def audit_history_wiring():
     project_root = Path(__file__).resolve().parents[1]
 
     for filename, (feature_name, required_tokens) in REQUIRED_HISTORY_WIRING.items():
+        path = project_root / filename
+        if not path.exists():
+            issues.append(_issue("error", "历史记录", f"{feature_name}入口文件缺失", filename))
+            continue
+
+        text = path.read_text(encoding="utf-8")
+        missing_tokens = [token for token in required_tokens if token not in text]
+        if missing_tokens:
+            issues.append(_issue(
+                "error",
+                "历史记录",
+                f"{feature_name}缺少复问拦截或记录",
+                f"{filename} missing={missing_tokens}",
+            ))
+
+    for filename, (feature_name, required_tokens) in REQUIRED_WEB_HISTORY_WIRING.items():
         path = project_root / filename
         if not path.exists():
             issues.append(_issue("error", "历史记录", f"{feature_name}入口文件缺失", filename))
