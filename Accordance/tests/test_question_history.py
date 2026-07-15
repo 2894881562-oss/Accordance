@@ -88,6 +88,20 @@ class QuestionHistoryTests(unittest.TestCase):
                     self.assertEqual(compacted["t"], now)
                     datetime.datetime.strptime(compacted["dt"], "%Y-%m-%d %H:%M:%S")
 
+    def test_malformed_text_fields_are_compacted_without_crashing(self):
+        compacted = _compact_entry({
+            "question": ["question", {"nested": True}],
+            "module": {"name": "module"},
+            "timestamp": 1,
+            "result_summary": 123,
+            "context": ["x" * 300],
+        })
+
+        self.assertEqual(compacted["q"], '["question",{"nested":true}]')
+        self.assertEqual(compacted["m"], '{"name":"module"}')
+        self.assertEqual(compacted["r"], "123")
+        self.assertLessEqual(len(compacted["c"]), 180)
+
     def test_disabled_history_returns_false_and_explains(self):
         disabled = Mock()
         disabled.add_question.return_value = False

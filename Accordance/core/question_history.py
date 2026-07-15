@@ -428,7 +428,14 @@ def _remaining_wait(days, target_days):
 
 def _truncate_text(text, limit):
     """限制字段长度，避免历史文件无限膨胀。"""
-    text = (text or "").strip()
+    if text is None:
+        text = ""
+    elif not isinstance(text, str):
+        try:
+            text = json.dumps(text, ensure_ascii=False, separators=(",", ":"))
+        except (TypeError, ValueError, RecursionError):
+            text = ""
+    text = text.strip()
     if len(text) <= limit:
         return text
     return text[: max(0, limit - 1)] + "…"
