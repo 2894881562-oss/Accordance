@@ -506,7 +506,7 @@ class QuestionHistory:
     def _save(self):
         """保存到磁盘，并控制历史文件体积。"""
         if self._disabled:
-            return
+            return False
         self._history = _compact_history(self._history)
         try:
             directory = os.path.dirname(self._history_file)
@@ -514,8 +514,9 @@ class QuestionHistory:
                 os.makedirs(directory, exist_ok=True)
             with open(self._history_file, "w", encoding="utf-8") as f:
                 json.dump(self._history, f, ensure_ascii=False, separators=(",", ":"))
+            return True
         except (IOError, OSError):
-            pass
+            return False
 
     def check_duplicate(self, question, module_name):
         """
@@ -603,7 +604,7 @@ class QuestionHistory:
         """记录一次起卦并持久化。"""
         self._ensure_loaded()
         if self._disabled:
-            return
+            return False
         entry = {
             "question": question,
             "module": module_name,
@@ -613,7 +614,7 @@ class QuestionHistory:
         }
         self._history.append(_compact_entry(entry))
         self._history = _compact_history(self._history)
-        self._save()
+        return self._save()
 
     def get_recent(self, n=5):
         """获取最近 n 条记录（最近的在前面）。"""
@@ -623,13 +624,14 @@ class QuestionHistory:
     def clear(self):
         """清空历史。"""
         self._history = []
-        self._save()
+        return self._save()
 
     def stats(self):
         """返回历史统计信息。"""
         self._ensure_loaded()
         if self._disabled:
             return {
+                "enabled": False,
                 "total_questions": 0,
                 "oldest": "",
                 "newest": "",
@@ -640,6 +642,7 @@ class QuestionHistory:
             }
         file_size = os.path.getsize(self._history_file) if os.path.exists(self._history_file) else 0
         return {
+            "enabled": True,
             "total_questions": len(self._history),
             "oldest": _entry_datetime(self._history[0]) if self._history else "",
             "newest": _entry_datetime(self._history[-1]) if self._history else "",
@@ -909,7 +912,7 @@ def handle_duplicate_check(question, module_label, allow_rephrase=True, match_mo
 
 def record_question(question, module_label, result_summary):
     """起卦完成后调用，记录到历史并持久化。"""
-    get_session_history().add_question(question, module_label, result_summary)
+    return get_session_history().add_question(question, module_label, result_summary)
 
 
 def show_history():

@@ -186,8 +186,8 @@ REQUIRED_HISTORY_WIRING = {
 }
 REQUIRED_WEB_HISTORY_WIRING = {
     "web/history_store.py": (
-        "Web 复问匹配",
-        ("match_mode=\"semantic\"", "match_mode=match_mode"),
+        "Web 复问匹配与持久化",
+        ("match_mode=\"semantic\"", "match_mode=match_mode", "return get_history(client_id).add_question", "return get_history(client_id).clear"),
     ),
     "web/services.py": (
         "Web 问事历史键",
@@ -211,7 +211,7 @@ REQUIRED_WEB_HISTORY_WIRING = {
     ),
     "web/templates/history.html": (
         "Web 历史清理确认",
-        ('data-confirm-message="只清空当前设备的匿名历史，确认继续？"', "{% if cleared %}"),
+        ('data-confirm-message="只清空当前设备的匿名历史，确认继续？"', "{% if cleared and stats.enabled %}", "{% if clear_failed %}", "{% if stats.enabled %}"),
     ),
     "web/static/app.js": (
         "Web 历史清理交互",
@@ -219,7 +219,7 @@ REQUIRED_WEB_HISTORY_WIRING = {
     ),
     "web/app.py": (
         "Web 历史清理反馈",
-        ('RedirectResponse("/history?cleared=1", status_code=303)', 'request.query_params.get("cleared") == "1"'),
+        ('target = "/history?cleared=1" if cleared else "/history?clear_failed=1"', 'request.query_params.get("cleared") == "1"', 'request.query_params.get("clear_failed") == "1"'),
     ),
 }
 DETERMINISTIC_NO_HISTORY = {

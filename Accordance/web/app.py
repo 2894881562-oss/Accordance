@@ -226,6 +226,7 @@ def history_page(request: Request):
             "stats": stats,
             "title": "近期记录",
             "cleared": request.query_params.get("cleared") == "1",
+            "clear_failed": request.query_params.get("clear_failed") == "1",
         },
     )
     return _with_client_cookie(response, client_id, request)
@@ -235,8 +236,9 @@ def history_page(request: Request):
 def history_clear(request: Request):
     client_id = _ensure_client_id(request)
     _rate_limit(request, client_id)
-    clear_history(client_id)
-    response = RedirectResponse("/history?cleared=1", status_code=303)
+    cleared = clear_history(client_id)
+    target = "/history?cleared=1" if cleared else "/history?clear_failed=1"
+    response = RedirectResponse(target, status_code=303)
     return _with_client_cookie(response, client_id, request)
 
 

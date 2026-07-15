@@ -312,9 +312,9 @@ def _bazi_sections(result):
 
 
 def _record_if_needed(client_id, question, module_label, summary, should_record=True):
-    if should_record:
-        record_question(client_id, question, module_label, summary)
-    return should_record
+    if not should_record:
+        return False
+    return bool(record_question(client_id, question, module_label, summary))
 
 
 def _gate_duplicate(client_id, question, module_label, force, match_mode="semantic"):
@@ -716,14 +716,19 @@ def _run_bazi(payload, client_id):
         gender,
     )
     summary = f"{result['birth']['date']} {result['birth']['time']}：{result['bazi']}"
-    record_question(client_id, history_question, "四柱八字", _bazi_history_summary(result))
+    recorded = bool(record_question(
+        client_id,
+        history_question,
+        "四柱八字",
+        _bazi_history_summary(result),
+    ))
     return {
         "plain_conclusion": result["plain_conclusion"],
         "summary": summary,
         "sections": _bazi_sections(result),
         "raw_result": {"bazi": result},
         "duplicate_check": duplicate,
-        "history_recorded": True,
+        "history_recorded": recorded,
     }
 
 

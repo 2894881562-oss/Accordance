@@ -65,7 +65,7 @@ def check_duplicate(client_id, question, module_label, match_mode="semantic"):
 
 def record_question(client_id, question, module_label, result_summary):
     with _LOCK:
-        get_history(client_id).add_question(question, module_label, result_summary)
+        return get_history(client_id).add_question(question, module_label, result_summary)
 
 
 def recent_history(client_id, limit=20):
@@ -83,4 +83,4 @@ def recent_history(client_id, limit=20):
 
 def clear_history(client_id):
     with _LOCK:
-        get_history(client_id).clear()
+        return get_history(client_id).clear()
