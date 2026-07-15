@@ -7,6 +7,7 @@ import threading
 import uuid
 
 from core.question_history import (
+    HISTORY_DISABLED,
     MAX_HISTORY_BYTES,
     MAX_HISTORY_ENTRIES,
     QuestionHistory,
@@ -27,6 +28,25 @@ def web_data_dir():
         base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         path = os.path.join(base, ".data", "web_clients")
     return path
+
+
+def history_storage_status():
+    """返回匿名历史存储状态，不创建目录或暴露服务端路径。"""
+    if HISTORY_DISABLED:
+        return "disabled"
+
+    candidate = os.path.abspath(web_data_dir())
+    while not os.path.exists(candidate):
+        parent = os.path.dirname(candidate)
+        if parent == candidate:
+            break
+        candidate = parent
+
+    ready = (
+        os.path.isdir(candidate)
+        and os.access(candidate, os.W_OK | os.X_OK)
+    )
+    return "ready" if ready else "degraded"
 
 
 def new_client_id():

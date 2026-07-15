@@ -81,7 +81,7 @@ curl -I http://服务器公网IP/health
 curl -I http://服务器公网IP/
 ```
 
-如果配置了域名，把上面的地址替换为 `https://你的域名`。正常情况下 `/health` 返回 `200`，首页响应头应包含 `Cache-Control: no-store`、`X-Robots-Tag: noindex, nofollow`。
+如果配置了域名，把上面的地址替换为 `https://你的域名`。正常情况下 `/health` 返回 `200`，并给出 `{"status":"ok","history":"ready"}`。若主动禁用历史则 `history` 为 `disabled`；若历史目录不可写则顶层与 `history` 都为 `degraded`，但主分析服务仍返回 `200`。首页响应头应包含 `Cache-Control: no-store`、`X-Robots-Tag: noindex, nofollow`。
 
 ## 更新部署
 

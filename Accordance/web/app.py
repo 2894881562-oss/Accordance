@@ -16,7 +16,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
-from web.history_store import clear_history, normalize_client_id, recent_history
+from web.history_store import (
+    clear_history,
+    history_storage_status,
+    normalize_client_id,
+    recent_history,
+)
 from web.schemas import DivinationRequest, MethodSelectorRequest
 from web.services import FEATURES, recommend_methods, run_divination
 
@@ -228,7 +233,11 @@ async def privacy_headers(request, call_next):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    history_status = history_storage_status()
+    return {
+        "status": "degraded" if history_status == "degraded" else "ok",
+        "history": history_status,
+    }
 
 
 @app.get("/favicon.ico", include_in_schema=False)

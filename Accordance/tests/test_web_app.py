@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from starlette.requests import Request
 
 import web.app as app_module
+import web.history_store as history_store
 
 
 def make_request(peer, headers=None, scheme="http"):
@@ -68,6 +69,35 @@ class WebAppBoundaryTests(unittest.TestCase):
                     "device-rotated",
                 )
         self.assertEqual(raised.exception.status_code, 429)
+
+    def test_health_reports_optional_history_degradation(self):
+        with patch.object(app_module, "history_storage_status", return_value="ready"):
+            self.assertEqual(
+                app_module.health(),
+                {"status": "ok", "history": "ready"},
+            )
+        with patch.object(app_module, "history_storage_status", return_value="disabled"):
+            self.assertEqual(
+                app_module.health(),
+                {"status": "ok", "history": "disabled"},
+            )
+        with patch.object(app_module, "history_storage_status", return_value="degraded"):
+            self.assertEqual(
+                app_module.health(),
+                {"status": "degraded", "history": "degraded"},
+            )
+
+    def test_history_storage_status_is_read_only(self):
+        with patch.object(history_store, "HISTORY_DISABLED", True):
+            self.assertEqual(history_store.history_storage_status(), "disabled")
+        with patch.object(history_store, "HISTORY_DISABLED", False), patch.object(
+            history_store, "web_data_dir", return_value=str(history_store.__file__)
+        ):
+            self.assertEqual(history_store.history_storage_status(), "degraded")
+        with patch.object(history_store, "HISTORY_DISABLED", False), patch.object(
+            history_store, "web_data_dir", return_value=str(history_store.os.path.dirname(__file__))
+        ):
+            self.assertEqual(history_store.history_storage_status(), "ready")
 
 
 if __name__ == "__main__":
