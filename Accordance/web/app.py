@@ -110,10 +110,17 @@ def feature_form(request: Request, key: str):
     if key not in FEATURES:
         raise HTTPException(status_code=404, detail="功能不存在")
     client_id = _ensure_client_id(request)
+    initial_question = request.query_params.get("question", "").strip()[:200]
     response = templates.TemplateResponse(
         request=request,
         name="feature.html",
-        context={"request": request, "feature": FEATURES[key], "key": key, "title": FEATURES[key]["name"]},
+        context={
+            "request": request,
+            "feature": FEATURES[key],
+            "key": key,
+            "title": FEATURES[key]["name"],
+            "initial_question": initial_question,
+        },
     )
     return _with_client_cookie(response, client_id)
 

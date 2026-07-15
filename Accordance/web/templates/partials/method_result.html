@@ -9,7 +9,7 @@
       <p>{{ item.reason }}</p>
       <p class="muted">依据：{{ item.basis }}</p>
       <p class="muted">边界：{{ item.caution }}</p>
-      <a class="inline-action" href="/features/{{ item.key }}">进入{{ item.name }}</a>
+      <a class="inline-action" href="/features/{{ item.key }}{% if result.question %}?question={{ result.question|urlencode }}{% endif %}">进入{{ item.name }}</a>
     </section>
   {% endfor %}
 </article>

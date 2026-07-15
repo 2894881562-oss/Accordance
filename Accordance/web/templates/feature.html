@@ -9,7 +9,7 @@
   <form class="ajax-form" data-endpoint="/api/divinations/{{ key }}" data-target="#result">
     {% if key in ["full", "quick", "decision", "multi_decision", "qimen"] %}
       <label>所问之事
-        <textarea name="question" maxlength="200" rows="3" required placeholder="请简明写清对象、时间范围与所求结果"></textarea>
+        <textarea name="question" maxlength="200" rows="3" required placeholder="请简明写清对象、时间范围与所求结果">{{ initial_question }}</textarea>
       </label>
     {% endif %}
 

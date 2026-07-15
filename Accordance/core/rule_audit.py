@@ -5,6 +5,7 @@
 中最容易手写漂移的规则集中校验，便于每次改规则后快速回归。
 """
 
+import ast
 import datetime
 import re
 from pathlib import Path
@@ -569,6 +570,52 @@ def audit_method_selector_profiles():
             issues.append(_issue("warning", "起卦法选择器", f"{key} keywords 为空"))
     if len(menus) != len(set(menus)):
         issues.append(_issue("error", "起卦法选择器", "菜单编号存在重复", str(menus)))
+
+    project_root = Path(__file__).resolve().parents[1]
+    web_services_path = project_root / "web/services.py"
+    try:
+        tree = ast.parse(web_services_path.read_text(encoding="utf-8"))
+        feature_node = next(
+            node.value
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and any(isinstance(target, ast.Name) and target.id == "FEATURES" for target in node.targets)
+        )
+        web_features = ast.literal_eval(feature_node)
+        if set(web_features) != set(METHOD_PROFILES):
+            issues.append(_issue(
+                "error",
+                "起卦法选择器",
+                "Web 功能与选择器方法未保持一一对应",
+                f"web={sorted(web_features)} selector={sorted(METHOD_PROFILES)}",
+            ))
+        for key, feature in web_features.items():
+            if feature.get("method_key") != key:
+                issues.append(_issue(
+                    "error",
+                    "起卦法选择器",
+                    f"Web 功能 {key} 的选择器路由键漂移",
+                    str(feature.get("method_key")),
+                ))
+    except Exception as exc:
+        issues.append(_issue("error", "起卦法选择器", "无法审计 Web 功能映射", str(exc)))
+
+    continuity_tokens = {
+        "web/services.py": ('"question": question',),
+        "web/app.py": ('initial_question = request.query_params.get("question", "").strip()[:200]',),
+        "web/templates/feature.html": ("{{ initial_question }}",),
+        "web/templates/partials/method_result.html": ("result.question|urlencode",),
+    }
+    for filename, tokens in continuity_tokens.items():
+        text = (project_root / filename).read_text(encoding="utf-8")
+        missing = [token for token in tokens if token not in text]
+        if missing:
+            issues.append(_issue(
+                "error",
+                "起卦法选择器",
+                "Web 推荐问题未完整带入目标表单",
+                f"{filename} missing={missing}",
+            ))
 
     samples = [
         ("我的手机今天不见了，能找回吗", "item"),

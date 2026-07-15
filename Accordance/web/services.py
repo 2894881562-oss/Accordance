@@ -13,7 +13,7 @@ from core.divination import (
     time_qi_gua,
 )
 from core.interpretation import interpret_hexagram, interpret_three_yao
-from core.method_selector import format_method_recommendation, recommend_divination_methods
+from core.method_selector import format_method_recommendation
 from core.question_precheck import build_question_profile, format_question_profile
 from core.qimen import analyze_qimen, format_qimen_report
 from core.qi_context import get_accurate_day_ganzhi
@@ -677,8 +677,10 @@ def _run_qimen(payload, client_id):
 
 
 def recommend_methods(question):
+    question = _clean(question, "", 200)
     text, ranked = format_method_recommendation(question)
     return {
+        "question": question,
         "summary": text,
-        "ranked": recommend_divination_methods(question),
+        "ranked": ranked,
     }
