@@ -52,6 +52,40 @@ class QuestionHistoryTests(unittest.TestCase):
                 self.assertFalse(record_question("q", "m", "r"))
         self.assertIn("ACCORDANCE_HISTORY_DISABLED", output.getvalue())
 
+    def test_failed_save_rolls_back_in_memory_addition(self):
+        history = QuestionHistory(history_file="unused-history.json", disabled=False)
+        history._loaded = True
+        original = _compact_entry({
+            "question": "old question",
+            "module": "test",
+            "timestamp": 1,
+            "datetime": "1970-01-01 00:00:01",
+            "result_summary": "old result",
+        })
+        history._history = [original]
+
+        with patch.object(history, "_save", return_value=False):
+            self.assertFalse(history.add_question("new question", "test", "new result"))
+
+        self.assertEqual(history._history, [original])
+
+    def test_failed_clear_restores_in_memory_history(self):
+        history = QuestionHistory(history_file="unused-history.json", disabled=False)
+        history._loaded = True
+        original = _compact_entry({
+            "question": "keep question",
+            "module": "test",
+            "timestamp": 1,
+            "datetime": "1970-01-01 00:00:01",
+            "result_summary": "keep result",
+        })
+        history._history = [original]
+
+        with patch.object(history, "_save", return_value=False):
+            self.assertFalse(history.clear())
+
+        self.assertEqual(history._history, [original])
+
 
 if __name__ == "__main__":
     unittest.main()

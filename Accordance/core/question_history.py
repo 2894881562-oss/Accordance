@@ -634,6 +634,7 @@ class QuestionHistory:
         self._ensure_loaded()
         if self._disabled:
             return False
+        previous_history = self._history
         entry = {
             "question": question,
             "module": module_name,
@@ -642,9 +643,11 @@ class QuestionHistory:
             "result_summary": result_summary,
             "context": context,
         }
-        self._history.append(_compact_entry(entry))
-        self._history = _compact_history(self._history)
-        return self._save()
+        self._history = _compact_history([*previous_history, _compact_entry(entry)])
+        if self._save():
+            return True
+        self._history = previous_history
+        return False
 
     def get_recent(self, n=5):
         """获取最近 n 条记录（最近的在前面）。"""
@@ -653,8 +656,12 @@ class QuestionHistory:
 
     def clear(self):
         """清空历史。"""
+        previous_history = self._history
         self._history = []
-        return self._save()
+        if self._save():
+            return True
+        self._history = previous_history
+        return False
 
     def stats(self):
         """返回历史统计信息。"""
