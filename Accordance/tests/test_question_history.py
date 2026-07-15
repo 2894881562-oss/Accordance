@@ -1,7 +1,7 @@
 import io
 import unittest
 from contextlib import redirect_stdout
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, mock_open, patch
 
 from core.question_history import (
     HISTORY_SCHEMA_VERSION,
@@ -116,6 +116,29 @@ class QuestionHistoryTests(unittest.TestCase):
             self.assertFalse(history.clear())
 
         self.assertEqual(history._history, [original])
+
+    def test_corrupt_history_is_not_overwritten_by_automatic_save(self):
+        history = QuestionHistory(history_file="corrupt-history.json", disabled=False)
+        with patch("core.question_history.os.path.exists", return_value=True), patch(
+            "builtins.open", mock_open(read_data="{not-json")
+        ):
+            self.assertEqual(history.get_recent(), [])
+
+        self.assertFalse(history.stats()["available"])
+        with patch.object(history, "_save", wraps=history._save) as save:
+            self.assertFalse(history.add_question("new question", "test", "result"))
+        save.assert_called_once()
+        self.assertEqual(history._history, [])
+
+    def test_explicit_clear_can_recover_failed_load_state(self):
+        history = QuestionHistory(history_file="corrupt-history.json", disabled=False)
+        history._loaded = True
+        history._load_failed = True
+
+        with patch.object(history, "_save", return_value=True):
+            self.assertTrue(history.clear())
+
+        self.assertFalse(history._load_failed)
 
 
 if __name__ == "__main__":

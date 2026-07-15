@@ -8,6 +8,9 @@
   {% else %}
     <p class="warning" role="status">历史记录当前已由服务端禁用，本次运行不会读取或保存复问记录。</p>
   {% endif %}
+  {% if stats.enabled and not stats.available %}
+    <p class="warning" role="alert">当前设备的历史文件无法读取。为避免覆盖原数据，系统已暂停自动保存；确认不再需要恢复原文件时，可在下方主动清空并重建。</p>
+  {% endif %}
   {% if cleared and stats.enabled %}
     <p class="success" role="status">当前设备的匿名历史已清空。</p>
   {% endif %}

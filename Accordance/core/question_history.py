@@ -522,6 +522,7 @@ class QuestionHistory:
         self._disabled = HISTORY_DISABLED if disabled is None else bool(disabled)
         self._history = []
         self._loaded = False
+        self._load_failed = False
 
     def _ensure_loaded(self):
         """惰性加载历史文件。"""
@@ -536,18 +537,21 @@ class QuestionHistory:
             if os.path.exists(self._history_file):
                 with open(self._history_file, "r", encoding="utf-8") as f:
                     raw = json.load(f)
-                if isinstance(raw, list):
+                if not isinstance(raw, list):
+                    self._load_failed = True
+                else:
                     self._history = _compact_history(raw)
                     should_migrate = raw != self._history
         except (json.JSONDecodeError, IOError, OSError):
             self._history = []
+            self._load_failed = True
         self._loaded = True
         if should_migrate:
             self._save()
 
     def _save(self):
         """保存到磁盘，并控制历史文件体积。"""
-        if self._disabled:
+        if self._disabled or self._load_failed:
             return False
         self._history = _compact_history(self._history)
         temp_path = ""
@@ -689,10 +693,14 @@ class QuestionHistory:
     def clear(self):
         """清空历史。"""
         previous_history = self._history
+        previous_load_failed = self._load_failed
         self._history = []
+        # 清空是用户明确授权的恢复动作，允许用空列表替换损坏文件。
+        self._load_failed = False
         if self._save():
             return True
         self._history = previous_history
+        self._load_failed = previous_load_failed
         return False
 
     def stats(self):
@@ -701,6 +709,7 @@ class QuestionHistory:
         if self._disabled:
             return {
                 "enabled": False,
+                "available": False,
                 "total_questions": 0,
                 "oldest": "",
                 "newest": "",
@@ -709,9 +718,15 @@ class QuestionHistory:
                 "max_entries": MAX_HISTORY_ENTRIES,
                 "max_bytes": MAX_HISTORY_BYTES,
             }
-        file_size = os.path.getsize(self._history_file) if os.path.exists(self._history_file) else 0
+        available = not self._load_failed
+        try:
+            file_size = os.path.getsize(self._history_file) if os.path.exists(self._history_file) else 0
+        except OSError:
+            file_size = 0
+            available = False
         return {
             "enabled": True,
+            "available": available,
             "total_questions": len(self._history),
             "oldest": _entry_datetime(self._history[0]) if self._history else "",
             "newest": _entry_datetime(self._history[-1]) if self._history else "",

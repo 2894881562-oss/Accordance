@@ -238,6 +238,8 @@ REQUIRED_HISTORY_WIRING = {
             "os.fsync",
             "os.replace",
             "os.remove",
+            "self._load_failed",
+            "previous_load_failed",
             "【历史未保存】",
             "if history.clear():",
             "重启后旧记录可能恢复",
@@ -281,7 +283,7 @@ REQUIRED_WEB_HISTORY_WIRING = {
     ),
     "web/templates/history.html": (
         "Web 历史清理确认",
-        ('data-confirm-message="只清空当前设备的匿名历史，确认继续？"', "{% if cleared and stats.enabled %}", "{% if clear_failed %}", "{% if stats.enabled %}", "{% if item.c %}"),
+        ('data-confirm-message="只清空当前设备的匿名历史，确认继续？"', "{% if cleared and stats.enabled %}", "{% if clear_failed %}", "{% if stats.enabled %}", "{% if stats.enabled and not stats.available %}", "{% if item.c %}"),
     ),
     "web/static/app.js": (
         "Web 历史清理交互",
