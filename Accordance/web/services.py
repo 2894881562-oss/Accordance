@@ -43,7 +43,11 @@ from modules.multi_decision import (
     parse_multi_options_text,
 )
 from modules.name_divination import _name_history_prefix, _name_history_question
-from modules.qimen import _qimen_history_question, _qimen_history_summary
+from modules.qimen import (
+    _plain_qimen_conclusion,
+    _qimen_history_question,
+    _qimen_history_summary,
+)
 from web.history_store import check_duplicate, record_question
 
 
@@ -132,23 +136,6 @@ def _text_report_sections(report, initial_title="起局摘要"):
     if items:
         sections.append(_section(title, items))
     return sections
-
-
-def _plain_qimen_conclusion(result):
-    """压缩奇门首屏结论，完整依据保留在折叠分节。"""
-    decision = result.get("integrated_decision", {})
-    confidence = result.get("confidence_profile", {})
-    guardrails = result.get("execution_guardrails", {})
-    signal = decision.get("final_signal") or "信号未定"
-    primary = decision.get("primary_direction") or "待定方位"
-    priority = decision.get("priority") or "先核信息"
-    guard_mode = guardrails.get("mode") or "小步验证"
-    score = confidence.get("score", "未评估")
-    level = confidence.get("level") or "待校准"
-    return (
-        f"{signal}：主位优先{primary}，策略为{priority}，执行上{guard_mode}。"
-        f"置信度{score}/100（{level}）；关键动作前先核对现实条件与停止条件。"
-    )
 
 
 def _profile_section(question, method_key):
@@ -770,7 +757,9 @@ def _run_qimen(payload, client_id):
     return {
         "plain_conclusion": _plain_qimen_conclusion(result),
         "summary": summary,
-        "sections": _text_report_sections(format_qimen_report(result)),
+        "sections": _text_report_sections(
+            format_qimen_report(result, include_plain_conclusion=False)
+        ),
         "raw_result": {"qimen": result, "focus_seed": payload.focus_seed},
         "duplicate_check": duplicate,
         "history_recorded": recorded,

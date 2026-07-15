@@ -44,3 +44,19 @@ def ask_choice(prompt, label, allowed, *, default=None):
         if normalized is not None:
             return normalized
         print(f"{label}输入无效，请选择：{' / '.join(choices)}。")
+
+
+def present_conclusion(conclusion):
+    """先显示短结论；仅在用户明确同意时继续输出详细分析。"""
+    print()
+    print("━" * 62)
+    print(f"  【简短结论】{conclusion}")
+    print("━" * 62)
+    choice = input("是否展开详细分析？(y/N)：").strip().casefold()
+    if choice in {"y", "yes", "是"}:
+        print()
+        print("  【详细分析】")
+        return True
+    print("═" * 62)
+    print()
+    return False

@@ -165,17 +165,37 @@ REQUIRED_WEB_NAME_STROKE_WIRING = {
 REQUIRED_CLI_INPUT_WIRING = {
     "core/cli_input.py": (
         "CLI 输入助手",
-        ("def ask_text(", "def ask_choice(", "不能为空", "不能超过", "输入无效"),
+        (
+            "def ask_text(",
+            "def ask_choice(",
+            "def present_conclusion(",
+            "是否展开详细分析？(y/N)",
+            "不能为空",
+            "不能超过",
+            "输入无效",
+        ),
     ),
-    "modules/full_divination.py": ("六爻详占", ("ask_text", '"所问之事",', '"外应",')),
-    "modules/quick_divination.py": ("三爻快占", ("ask_text", '"所问之事",', '"外应",')),
-    "modules/name_divination.py": ("姓名起卦", ("ask_text", '"姓氏", 24', '"名字", 24')),
-    "modules/item_search.py": ("寻物专项占", ("ask_text", "ask_choice", '("1", "2")')),
-    "modules/decision_helper.py": ("二选一决策", ("ask_text", "casefold()")),
-    "modules/multi_decision.py": ("多选最优决策", ("ask_text", "option_keys", "casefold()")),
-    "modules/bazi.py": ("四柱八字", ("ask_choice", '("男", "女")')),
-    "modules/qimen.py": ("奇门运筹", ("ask_text", "ask_choice", 'default="综合"')),
+    "modules/full_divination.py": ("六爻详占", ("ask_text", "present_conclusion", '"所问之事",', '"外应",')),
+    "modules/quick_divination.py": ("三爻快占", ("ask_text", "present_conclusion", '"所问之事",', '"外应",')),
+    "modules/name_divination.py": ("姓名起卦", ("ask_text", "present_conclusion", '"姓氏", 24', '"名字", 24')),
+    "modules/daily_fortune.py": ("当日气运", ("present_conclusion", "_plain_daily_conclusion")),
+    "modules/item_search.py": ("寻物专项占", ("ask_text", "ask_choice", "present_conclusion", '("1", "2")')),
+    "modules/decision_helper.py": ("二选一决策", ("ask_text", "present_conclusion", "casefold()")),
+    "modules/multi_decision.py": ("多选最优决策", ("ask_text", "present_conclusion", "option_keys", "casefold()")),
+    "modules/bazi.py": ("四柱八字", ("ask_choice", "present_conclusion", '("男", "女")')),
+    "modules/qimen.py": ("奇门运筹", ("ask_text", "ask_choice", "present_conclusion", 'default="综合"')),
     "modules/method_selector.py": ("起卦法选择器", ("ask_text", '"所问之事", 200')),
+}
+CLI_DETAIL_MARKERS = {
+    "modules/full_divination.py": 'print("  【纳甲装卦】")',
+    "modules/quick_divination.py": 'print(f"  【方位】',
+    "modules/name_divination.py": 'print("  【纳甲装卦】")',
+    "modules/daily_fortune.py": "# ===== 日期与主卦 =====",
+    "modules/item_search.py": 'print(f"  【寻回概率】',
+    "modules/decision_helper.py": '_print_option("选项A"',
+    "modules/multi_decision.py": "\n    _print_scoreboard(scored)",
+    "modules/bazi.py": "format_bazi_report(result",
+    "modules/qimen.py": "format_qimen_report(result",
 }
 REQUIRED_DEPLOYMENT_WIRING = {
     "Dockerfile": (
@@ -397,6 +417,27 @@ def audit_cli_input_wiring():
                 "CLI 输入",
                 f"{feature_name}缺少统一输入校验",
                 f"{filename} missing={missing}",
+            ))
+    for filename, detail_marker in CLI_DETAIL_MARKERS.items():
+        path = project_root / filename
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        conclusion_position = text.find("if not present_conclusion(")
+        detail_position = text.find(detail_marker)
+        if conclusion_position < 0 or detail_position < 0 or conclusion_position > detail_position:
+            issues.append(_issue(
+                "error",
+                "CLI 输入",
+                "CLI 结果应先显示简短结论，再按需展开详细分析",
+                filename,
+            ))
+        if "【简短结论】" in text:
+            issues.append(_issue(
+                "warning",
+                "CLI 输入",
+                "CLI 模块不应在详细分析末尾重复简短结论",
+                filename,
             ))
     return issues
 

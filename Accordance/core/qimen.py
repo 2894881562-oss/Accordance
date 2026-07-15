@@ -1710,7 +1710,7 @@ def _format_palace_line(item):
     )
 
 
-def format_qimen_report(result: Dict[str, Any]) -> str:
+def format_qimen_report(result: Dict[str, Any], include_plain_conclusion=True) -> str:
     """格式化 CLI 报告。"""
     time_info = result["time_context"]
     scenario = result["scenario"]
@@ -1915,6 +1915,7 @@ def format_qimen_report(result: Dict[str, Any]) -> str:
     lines.append(result["traditional_boundary"])
     lines.append(result["fenghou_boundary"])
     lines.append(result["boundary_note"])
-    lines.append("")
-    lines.append(f"【简短结论】{result['plain_conclusion']}")
+    if include_plain_conclusion:
+        lines.append("")
+        lines.append(f"【简短结论】{result['plain_conclusion']}")
     return "\n".join(lines)

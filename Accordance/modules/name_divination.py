@@ -2,7 +2,7 @@
 """姓名起卦模块。笔画数建议使用康熙字典笔画；使用六爻纳甲体系解卦。"""
 
 from core.divination import name_qi_gua
-from core.cli_input import ask_text
+from core.cli_input import ask_text, present_conclusion
 from core.interpretation import interpret_hexagram
 from core.qi_context import get_accurate_day_ganzhi
 from core.question_history import handle_duplicate_check, record_question
@@ -94,6 +94,9 @@ def run_name_divination():
         f"{r['gua_name']}（{r['ji_xiong']}），体用：{tiyong.get('relation', '未知')}",
     )
 
+    if not present_conclusion(r["plain_conclusion"]):
+        return
+
     # ===== 基本信息 =====
     print()
     _sep("━")
@@ -171,6 +174,5 @@ def run_name_divination():
     print(r.get("human_agency_reminder", ""))
 
     print(f"  起卦日干支：{get_accurate_day_ganzhi()}")
-    print(f"  【简短结论】{r['plain_conclusion']}")
     _sep("═")
     print()

@@ -3,7 +3,7 @@
 
 import re
 
-from core.cli_input import ask_text
+from core.cli_input import ask_text, present_conclusion
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
 from core.question_history import handle_duplicate_check, record_question
 from core.question_precheck import build_question_profile, format_question_profile
@@ -208,7 +208,6 @@ def _print_best_summary(scored):
     _print_option(f"最优选项{best['label']}", best["option"], best["result"])
 
     print()
-    print(f"  【结论】{_plain_multi_conclusion(scored)}")
     print("  提醒：多选评分只做传统文化参考，最终仍应以现实证据、成本、风险和可执行条件校验。")
 
 
@@ -267,6 +266,9 @@ def run_multi_decision(prefilled_question=None):
 
     scored = _score_options(question, options, focus_info["focus_seed"])
     record_question(history_question, "多选最优决策", _record_summary(scored))
+
+    if not present_conclusion(_plain_multi_conclusion(scored)):
+        return
 
     _print_scoreboard(scored)
     _print_best_summary(scored)

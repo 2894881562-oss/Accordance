@@ -6,7 +6,7 @@
 """
 
 from core.divination import dynamic_three_yao_quick_divination
-from core.cli_input import ask_text
+from core.cli_input import ask_text, present_conclusion
 from core.interpretation import interpret_three_yao
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
 from core.question_precheck import build_question_profile, format_question_profile
@@ -62,6 +62,9 @@ def run_quick_divination(prefilled_question=None):
         f"{r['suggest'][:20]}"
     )
 
+    if not present_conclusion(r["plain_conclusion"]):
+        return
+
     print()
     _sep("━")
     print(f"  问题：{question}")
@@ -95,6 +98,5 @@ def run_quick_divination(prefilled_question=None):
           f"人念：{focus_info['focus_seconds']:.2f}秒  |  "
           f"种子：{three_yao_info['qi_seed']}")
     print(f"  三爻：{three_yao_info['yao_list']}")
-    print(f"  【简短结论】{r['plain_conclusion']}")
     _sep("═")
     print()

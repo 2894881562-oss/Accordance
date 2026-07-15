@@ -2,7 +2,7 @@
 """寻物专项占模块。三爻起卦 + 八卦空间位置专项提示 + 物品特征推理。"""
 
 from core.divination import dynamic_three_yao_quick_divination
-from core.cli_input import ask_choice, ask_text
+from core.cli_input import ask_choice, ask_text, present_conclusion
 from core.interpretation import interpret_three_yao
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
 from core.question_precheck import build_question_profile, format_question_profile
@@ -196,6 +196,8 @@ def run_item_search():
     gua_info = three_yao_info["gua_info"]
     gua_name = gua_info["name"]
     tips = _item_tips(item_name, last_place, item_feature, gua_name)
+    if not present_conclusion(_plain_item_conclusion(gua_name, tips, search_scope)):
+        return
 
     print()
     _sep("━")
@@ -232,6 +234,5 @@ def run_item_search():
     print()
     print(f"  日干支：{get_accurate_day_ganzhi()}  |  "
           f"人念：{focus_info['focus_seconds']:.2f}秒")
-    print(f"  【简短结论】{_plain_item_conclusion(gua_name, tips, search_scope)}")
     _sep("═")
     print()

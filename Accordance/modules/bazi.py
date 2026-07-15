@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """八字命理 CLI。"""
 
-from core.cli_input import ask_choice
+from core.cli_input import ask_choice, present_conclusion
 from core.bazi import analyze_bazi_birth, format_bazi_report, parse_birth_datetime
 from core.question_history import handle_duplicate_check, record_question
 
@@ -89,6 +89,9 @@ def run_bazi_analysis():
     result = analyze_bazi_birth(birth_date, birth_hour, birth_minute, gender)
     record_question(history_question, "四柱八字", _bazi_history_summary(result))
 
+    if not present_conclusion(result["plain_conclusion"]):
+        return
+
     print()
-    print(format_bazi_report(result))
+    print(format_bazi_report(result, include_plain_conclusion=False))
     _sep("═")

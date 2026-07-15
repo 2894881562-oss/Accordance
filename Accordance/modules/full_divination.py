@@ -6,7 +6,7 @@
 """
 
 from core.divination import dynamic_time_qi_gua
-from core.cli_input import ask_text
+from core.cli_input import ask_text, present_conclusion
 from core.interpretation import interpret_hexagram
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
 from core.question_precheck import build_question_profile, format_question_profile
@@ -60,6 +60,9 @@ def run_full_divination(prefilled_question=None):
         f"{result['gua_name']}（{result['ji_xiong']}），"
         f"体用：{result.get('tiyong_info', {}).get('relation', '未知')}"
     )
+
+    if not present_conclusion(result["plain_conclusion"]):
+        return
 
     tiyong = result.get("tiyong_info", {})
     j = result  # shorthand
@@ -197,6 +200,5 @@ def run_full_divination(prefilled_question=None):
     print()
     # ===== 提醒 =====
     print(f"  【提醒】本系统仅为传统文化研究参考，不替代现实判断。")
-    print(f"  【简短结论】{j['plain_conclusion']}")
     _sep("═")
     print()

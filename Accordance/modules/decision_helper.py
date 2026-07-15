@@ -7,7 +7,7 @@
 
 import re
 
-from core.cli_input import ask_text
+from core.cli_input import ask_text, present_conclusion
 from core.divination import get_lunar_time
 from core.interpretation import interpret_hexagram
 from core.qi_context import collect_focus_seed, get_accurate_day_ganzhi
@@ -306,7 +306,6 @@ def _compare(option_a, score_a, r_a, option_b, score_b, r_b):
     print("  提醒：卦象只为参考，金钱/合同/健康/法律等重要事项应以事实和专业意见为准。")
     # 人本提醒
     print(r_a.get("human_agency_reminder", ""))
-    print(f"  【简短结论】{_plain_decision_conclusion(option_a, score_a, r_a, option_b, score_b, r_b)}")
 
 
 def run_decision_helper(prefilled_question=None):
@@ -367,6 +366,10 @@ def run_decision_helper(prefilled_question=None):
         f"A「{option_a}」→ {r_a['gua_name']}（{r_a['ji_xiong']}），"
         f"B「{option_b}」→ {r_b['gua_name']}（{r_b['ji_xiong']}）"
     )
+
+    conclusion = _plain_decision_conclusion(option_a, score_a, r_a, option_b, score_b, r_b)
+    if not present_conclusion(conclusion):
+        return
 
     _print_option("选项A", option_a, r_a)
     _print_option("选项B", option_b, r_b)

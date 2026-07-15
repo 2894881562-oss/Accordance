@@ -757,7 +757,7 @@ def analyze_bazi_birth(birth_date, birth_hour, birth_minute=0, gender: Optional[
     }
 
 
-def format_bazi_report(result: Dict[str, Any]):
+def format_bazi_report(result: Dict[str, Any], include_plain_conclusion=True):
     """格式化 CLI 报告。"""
     lines: List[str] = []
     lines.append(f"八字：{result['bazi']}")
@@ -823,6 +823,7 @@ def format_bazi_report(result: Dict[str, Any]):
     lines.append("【关系双向性】")
     lines.extend(result["relationship_notes"])
     lines.append("")
-    lines.append(f"【简短结论】{result['plain_conclusion']}")
+    if include_plain_conclusion:
+        lines.append(f"【简短结论】{result['plain_conclusion']}")
     lines.append(f"【边界】{result['boundary_note']}")
     return "\n".join(lines)

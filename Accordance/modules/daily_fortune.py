@@ -6,6 +6,7 @@
 """
 
 from core.divination import time_qi_gua, daily_guidance_gua
+from core.cli_input import present_conclusion
 from core.interpretation import interpret_hexagram, interpret_three_yao
 from core.qi_context import get_accurate_day_ganzhi
 
@@ -49,6 +50,8 @@ def run_daily_fortune():
     dr = interpret_three_yao(daily_gua_info)
 
     lunar = hexagram_info["lunar_info"]
+    if not present_conclusion(_plain_daily_conclusion(r, dr)):
+        return
 
     # ===== 日期与主卦 =====
     print()
@@ -108,6 +111,5 @@ def run_daily_fortune():
         print(human)
 
     print(f"  提醒：当日气运用於查看整体基调，临时问题请用三爻快占，重大决策请用六爻详占。")
-    print(f"  【简短结论】{_plain_daily_conclusion(r, dr)}")
     _sep("═")
     print()

@@ -3,7 +3,7 @@
 
 import datetime
 
-from core.cli_input import ask_choice, ask_text
+from core.cli_input import ask_choice, ask_text, present_conclusion
 from core.qimen import analyze_qimen, format_qimen_report
 from core.qi_context import collect_focus_seed
 from core.question_history import handle_duplicate_check, record_question
@@ -27,6 +27,23 @@ def _qimen_history_summary(result):
     final_signal = integrated.get("final_signal") or "信号未定"
     confidence_score = confidence.get("score", "未评估")
     return f"{primary}，{final_signal}，置信度{confidence_score}"
+
+
+def _plain_qimen_conclusion(result):
+    """压缩奇门首屏结论，完整依据留在详细报告。"""
+    decision = result.get("integrated_decision", {})
+    confidence = result.get("confidence_profile", {})
+    guardrails = result.get("execution_guardrails", {})
+    signal = decision.get("final_signal") or "信号未定"
+    primary = decision.get("primary_direction") or "待定方位"
+    priority = decision.get("priority") or "先核信息"
+    guard_mode = guardrails.get("mode") or "小步验证"
+    score = confidence.get("score", "未评估")
+    level = confidence.get("level") or "待校准"
+    return (
+        f"{signal}：主位优先{primary}，策略为{priority}，执行上{guard_mode}。"
+        f"置信度{score}/100（{level}）；关键动作前先核对现实条件与停止条件。"
+    )
 
 
 def run_qimen_analysis(prefilled_topic=""):
@@ -76,5 +93,7 @@ def run_qimen_analysis(prefilled_topic=""):
     record_question(history_question, "奇门运筹", _qimen_history_summary(result))
     print()
     print(f"定局人念：{focus_info['focus_seconds']:.2f}秒")
-    print(format_qimen_report(result))
+    if not present_conclusion(_plain_qimen_conclusion(result)):
+        return
+    print(format_qimen_report(result, include_plain_conclusion=False))
     _sep("═")
