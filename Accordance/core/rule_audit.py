@@ -726,6 +726,22 @@ def audit_method_selector_profiles():
                 f"question={question} expected={expected_key} actual={actual_key}",
             ))
 
+    conflict_samples = [
+        ("AI工具值得长期投入吗", "decision"),
+        ("这个方案可行吗", "multi_decision"),
+        ("这个选项风险如何", "decision"),
+    ]
+    for question, unrelated_key in conflict_samples:
+        ranked = recommend_divination_methods(question)
+        candidate = next(item for item in ranked if item["key"] == unrelated_key)
+        if candidate["score"] != 0 or candidate["hits"]:
+            issues.append(_issue(
+                "error",
+                "起卦法选择器",
+                "单字母或单方案触发了无关决策入口",
+                f"question={question} candidate={candidate}",
+            ))
+
     return issues
 
 

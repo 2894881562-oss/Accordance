@@ -76,7 +76,7 @@ METHOD_PROFILES = {
         "name": "二选一决策",
         "fit": "两个明确选项之间取舍、比较。",
         "basis": "两案分别起象再比较体用、用神、风险，适合二择一。",
-        "keywords": ["二选一", "选哪个", "哪一个", "哪个更", "选择", "取舍", "还是", "对比", "比较", "A", "B"],
+        "keywords": ["二选一", "选哪个", "哪一个", "哪个更", "选择", "取舍", "还是", "对比", "比较"],
     },
     "multi_decision": {
         "menu": "7",
@@ -256,9 +256,9 @@ def _score_method(text, method_key, route_context=None):
     hits = _contains_any(text, profile["keywords"])
     score = len(hits) * 3
 
-    if method_key == "decision" and ("还是" in text or "或者" in text or "选" in text):
+    if method_key == "decision" and _looks_like_two_options(text) and not _looks_like_multi_options(text):
         score += 4
-    if method_key == "multi_decision" and any(word in text for word in ["多选", "方案", "选项", "最优", "排名", "排序", "优先级"]):
+    if method_key == "multi_decision" and _looks_like_multi_options(text):
         score += 5
     if method_key == "full" and any(word in text for word in ["长期", "重大", "复杂", "前因后果", "风险"]):
         score += 5
