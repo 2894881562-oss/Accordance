@@ -212,6 +212,33 @@ def audit_history_wiring():
                 f"{filename} missing={missing_tokens}",
             ))
 
+    web_services_path = project_root / "web/services.py"
+    if web_services_path.exists():
+        web_services_text = web_services_path.read_text(encoding="utf-8")
+        daily_match = re.search(
+            r"def _run_daily\(.*?\n(?=def _run_item\()",
+            web_services_text,
+            re.DOTALL,
+        )
+        if not daily_match:
+            issues.append(_issue("error", "历史记录", "无法识别 Web 当日气运服务", "web/services.py"))
+        else:
+            daily_block = daily_match.group(0)
+            if "record_question(" in daily_block:
+                issues.append(_issue(
+                    "warning",
+                    "历史记录",
+                    "Web 当日气运属于确定性功能，不应写入问事历史",
+                    "web/services.py",
+                ))
+            if '"history_recorded": False' not in daily_block:
+                issues.append(_issue(
+                    "error",
+                    "历史记录",
+                    "Web 当日气运应明确标记为未写入历史",
+                    "web/services.py",
+                ))
+
     for filename, feature_name in DETERMINISTIC_NO_HISTORY.items():
         path = project_root / filename
         if not path.exists():

@@ -375,14 +375,13 @@ def _run_daily(payload, client_id):
         ]),
     ]
     summary = f"当日气运：{result['gua_name']}（{result['ji_xiong']}）"
-    record_question(client_id, "当日气运", "当日气运", summary)
     return {
         "plain_conclusion": plain,
         "summary": summary,
         "sections": sections,
         "raw_result": {"hexagram": result, "daily": helper, "input": info},
         "duplicate_check": {"is_duplicate": False, "action": "none"},
-        "history_recorded": True,
+        "history_recorded": False,
     }
 
 
