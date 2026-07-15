@@ -1,6 +1,15 @@
 .git
+.agents
+.codex
 .idea
+.vscode
 .claude
+.env
+.env.*
+**/.venv/
+**/venv/
+**/env/
+**/ENV/
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -11,3 +20,5 @@ deploy/cloud/.env
 参考资料/
 *.log
 *.tmp
+.DS_Store
+Thumbs.db

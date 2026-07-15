@@ -201,6 +201,7 @@ CLI_DETAIL_MARKERS = {
     "modules/qimen.py": "format_qimen_report(result",
 }
 REQUIRED_DEPLOYMENT_WIRING = {
+    ".dockerignore": ("Accordance/.data/", "**/.venv/", ".codex", ".env.*"),
     "Dockerfile": (
         "USER accordance",
         "HEALTHCHECK --interval=30s",
