@@ -106,7 +106,22 @@ REQUIRED_WEB_REQUEST_WIRING = {
             'form.dataset.submitting === "true"',
             "网络连接失败，请确认服务仍在运行后重试。",
             "paragraph.textContent = message",
+            'paragraph.setAttribute("role", className === "warning" ? "alert" : "status")',
+            'target.setAttribute("aria-busy", "true")',
+            'target.setAttribute("aria-busy", "false")',
         ),
+    ),
+    "web/templates/feature.html": (
+        "Web 分析结果实时区域",
+        ('aria-label="分析结果" aria-live="polite"', 'data-focus-state aria-live="polite"'),
+    ),
+    "web/templates/method_selector.html": (
+        "Web 推荐结果实时区域",
+        ('aria-label="推荐结果" aria-live="polite"',),
+    ),
+    "web/static/app.css": (
+        "Web 键盘焦点",
+        (":focus-visible", "outline: 3px solid var(--gold)"),
     ),
 }
 REQUIRED_WEB_NAME_STROKE_WIRING = {

@@ -152,6 +152,7 @@
     article.className = "panel";
     paragraph.className = className;
     paragraph.textContent = message;
+    paragraph.setAttribute("role", className === "warning" ? "alert" : "status");
     article.appendChild(paragraph);
     target.replaceChildren(article);
   }
@@ -188,6 +189,7 @@
     const submitButton = form.querySelector('button[type="submit"]');
     const wasDisabled = submitButton?.disabled || false;
     form.dataset.submitting = "true";
+    target.setAttribute("aria-busy", "true");
     if (submitButton) {
       submitButton.disabled = true;
     }
@@ -216,6 +218,7 @@
       renderStatus(target, "网络连接失败，请确认服务仍在运行后重试。", "warning");
     } finally {
       form.dataset.submitting = "false";
+      target.setAttribute("aria-busy", "false");
       if (submitButton) {
         submitButton.disabled = wasDisabled;
       }

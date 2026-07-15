@@ -125,7 +125,7 @@
           <button class="secondary" type="button" data-focus-start>开始默念</button>
           <button class="secondary" type="button" data-focus-stop disabled>完成默念</button>
         </div>
-        <p class="muted" data-focus-state>尚未开始默念；完成默念后再起卦。</p>
+        <p class="muted" data-focus-state aria-live="polite">尚未开始默念；完成默念后再起卦。</p>
       </div>
     {% endif %}
 
@@ -134,5 +134,5 @@
   </form>
 </section>
 
-<section id="result" class="result-slot"></section>
+<section id="result" class="result-slot" role="region" aria-label="分析结果" aria-live="polite"></section>
 {% endblock %}
