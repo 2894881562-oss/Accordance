@@ -24,6 +24,14 @@ from modules.decision_helper import (
     _risk_tip,
 )
 from modules.item_search import _hint, _item_tips, _likelihood, _plain_item_conclusion
+from modules.multi_decision import (
+    _multi_history_question,
+    _plain_multi_conclusion,
+    _profile_question,
+    _record_summary,
+    _score_options,
+    parse_multi_options_text,
+)
 from modules.name_divination import _name_history_prefix, _name_history_question
 from web.history_store import check_duplicate, record_question
 
@@ -35,6 +43,7 @@ FEATURES = {
     "daily": {"name": "当日气运", "label": "当日气运", "method_key": "daily"},
     "item": {"name": "寻物专项", "label": "寻物专项占", "method_key": "item"},
     "decision": {"name": "二选一决策", "label": "二选一决策", "method_key": "decision"},
+    "multi_decision": {"name": "多选最优", "label": "多选最优决策", "method_key": "multi_decision"},
     "bazi": {"name": "四柱八字", "label": "四柱八字基础分析", "method_key": "bazi"},
 }
 
@@ -256,6 +265,8 @@ def run_divination(feature_key, payload, client_id):
         return _run_item(payload, client_id)
     if feature_key == "decision":
         return _run_decision(payload, client_id)
+    if feature_key == "multi_decision":
+        return _run_multi_decision(payload, client_id)
     if feature_key == "bazi":
         return _run_bazi(payload, client_id)
     raise ValueError("未知功能入口")
@@ -483,6 +494,52 @@ def _run_decision(payload, client_id):
         "summary": summary,
         "sections": sections,
         "raw_result": {"option_a": result_a, "option_b": result_b},
+        "duplicate_check": duplicate,
+        "history_recorded": recorded,
+    }
+
+
+def _run_multi_decision(payload, client_id):
+    question = _clean(payload.question, "未命名问题")
+    options = parse_multi_options_text(payload.options_text)
+    question_key = f"多选最优：{question}"
+    duplicate = _gate_duplicate(
+        client_id,
+        question_key,
+        "多选最优决策",
+        payload.force,
+        match_mode="prefix",
+    )
+    if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not payload.force:
+        return _blocked_response(question_key, duplicate)
+
+    history_question = _multi_history_question(question, options)
+    scored = _score_options(question, options, payload.focus_seed)
+    best = scored[0]
+    best_result = best["result"]
+    plain = _plain_multi_conclusion(scored)
+    sections = [
+        _profile_section(_profile_question(question, options), "multi_decision"),
+        _section("综合排名", [
+            f"{rank}. {item['label']}「{item['option']}」：{item['score']}/120"
+            for rank, item in enumerate(scored, 1)
+        ]),
+        _section("最优选项", [
+            f"{best['label']}：{best['option']}",
+            f"卦：{best_result['gua_name']}（{best_result['ji_xiong']}）",
+            f"评分：{best['score']}/120",
+            f"风险：{_risk_tip(best_result)}",
+            best_result.get("judgment_conclusion", ""),
+            "多选评分只作传统文化参考，最终仍应核对现实成本、风险和执行条件。",
+        ]),
+    ]
+    summary = _record_summary(scored)
+    recorded = _record_if_needed(client_id, history_question, "多选最优决策", summary)
+    return {
+        "plain_conclusion": plain,
+        "summary": summary,
+        "sections": sections,
+        "raw_result": {"ranked": scored, "options": options},
         "duplicate_check": duplicate,
         "history_recorded": recorded,
     }

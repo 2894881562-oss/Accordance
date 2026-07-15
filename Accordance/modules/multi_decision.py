@@ -97,6 +97,26 @@ def _extract_options_from_question(question):
     return options if 3 <= len(options) <= len(OPTION_LABELS) else []
 
 
+def parse_multi_options_text(text):
+    """解析 Web/API 提交的多选文本，每行或常见分隔符代表一个选项。"""
+    parts = [_clean_detected_option(part) for part in re.split(LIST_SEPARATORS, (text or "").strip())]
+    options = []
+    for option in parts:
+        if not option:
+            continue
+        if len(option) > 120:
+            raise ValueError("每个选项最多 120 个字符")
+        if option in options:
+            raise ValueError(f"选项「{option}」重复，请保留唯一选项")
+        options.append(option)
+
+    if len(options) < 3:
+        raise ValueError("多选最优至少需要 3 个选项；两个选项请使用二选一决策")
+    if len(options) > len(OPTION_LABELS):
+        raise ValueError(f"多选最优当前最多支持 {len(OPTION_LABELS)} 个选项")
+    return options
+
+
 def _confirm_detected_options(question):
     options = _extract_options_from_question(question)
     if not options:
@@ -150,9 +170,27 @@ def _print_scoreboard(scored):
         print(f"  {rank}. {item['label']}「{item['option']}」：{item['score']}/120")
 
 
-def _print_best_summary(scored):
+def _plain_multi_conclusion(scored):
+    """返回多选结果的一句结论，供 CLI 与 Web 共用。"""
     best = scored[0]
     runner_up = scored[1] if len(scored) > 1 else None
+    if not runner_up:
+        return f"建议优先选择{best['label']}「{best['option']}」。"
+
+    gap = best["score"] - runner_up["score"]
+    if gap <= 8:
+        return (
+            f"当前评分最高的是{best['label']}「{best['option']}」，"
+            f"但仅高出第二名{gap}分，属于小幅领先。建议先按现实成本、风险和资源再复核一遍。"
+        )
+    return (
+        f"建议优先选择{best['label']}「{best['option']}」。"
+        f"它比第二名高出{gap}分，当前卦象承载力相对更强。"
+    )
+
+
+def _print_best_summary(scored):
+    best = scored[0]
     print()
     _sep("═")
     print("  最优解详细说明")
@@ -160,20 +198,7 @@ def _print_best_summary(scored):
     _print_option(f"最优选项{best['label']}", best["option"], best["result"])
 
     print()
-    if runner_up:
-        gap = best["score"] - runner_up["score"]
-        if gap <= 8:
-            print(
-                f"  【结论】当前评分最高的是{best['label']}「{best['option']}」，"
-                f"但仅高出第二名{gap}分，属于小幅领先。建议先按现实成本、风险和资源再复核一遍。"
-            )
-        else:
-            print(
-                f"  【结论】建议优先选择{best['label']}「{best['option']}」。"
-                f"它比第二名高出{gap}分，当前卦象承载力相对更强。"
-            )
-    else:
-        print(f"  【结论】建议优先选择{best['label']}「{best['option']}」。")
+    print(f"  【结论】{_plain_multi_conclusion(scored)}")
     print("  提醒：多选评分只做传统文化参考，最终仍应以现实证据、成本、风险和可执行条件校验。")
 
 

@@ -59,7 +59,7 @@ REQUIRED_FOCUS_WIRING = {
 REQUIRED_WEB_FOCUS_WIRING = {
     "web/templates/feature.html": (
         "Web 二选一",
-        ('{% if key in ["full", "quick", "item", "decision"] %}', "data-focus-seed", "data-focus-ritual"),
+        ('{% if key in ["full", "quick", "item", "decision", "multi_decision"] %}', "data-focus-seed", "data-focus-ritual"),
     ),
     "web/static/app.js": ("Web 凝神交互", ("completeRunningFocus", "focus_seed")),
     "web/services.py": (
@@ -100,6 +100,9 @@ REQUIRED_WEB_HISTORY_WIRING = {
             "_bazi_history_question",
             "_bazi_history_summary",
             'match_mode="exact"',
+            "_multi_history_question",
+            "_record_summary",
+            "_run_multi_decision",
         ),
     ),
 }

@@ -7,7 +7,7 @@
 
 <section class="panel">
   <form class="ajax-form" data-endpoint="/api/divinations/{{ key }}" data-target="#result">
-    {% if key in ["full", "quick", "decision"] %}
+    {% if key in ["full", "quick", "decision", "multi_decision"] %}
       <label>所问之事
         <textarea name="question" maxlength="200" rows="3" required placeholder="请简明写清对象、时间范围与所求结果"></textarea>
       </label>
@@ -19,7 +19,7 @@
       </label>
     {% endif %}
 
-    {% if key in ["full", "quick", "item", "decision"] %}
+    {% if key in ["full", "quick", "item", "decision", "multi_decision"] %}
       <input name="focus_seed" type="hidden" value="0" data-focus-seed>
       <div class="focus-ritual" data-focus-ritual>
         <div>
@@ -76,6 +76,12 @@
       </label>
       <label>选项 B
         <input name="option_b" maxlength="120" required>
+      </label>
+    {% endif %}
+
+    {% if key == "multi_decision" %}
+      <label>候选选项（每行一个，3–9 项）
+        <textarea name="options_text" maxlength="1200" rows="6" required placeholder="方案甲&#10;方案乙&#10;方案丙"></textarea>
       </label>
     {% endif %}
 

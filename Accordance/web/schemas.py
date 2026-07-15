@@ -24,6 +24,7 @@ class DivinationRequest(BaseModel):
 
     option_a: Optional[str] = Field("", max_length=120)
     option_b: Optional[str] = Field("", max_length=120)
+    options_text: Optional[str] = Field("", max_length=1200)
 
     birth_date: Optional[str] = Field("", max_length=10)
     birth_hour: Optional[int] = Field(None, ge=0, le=23)
