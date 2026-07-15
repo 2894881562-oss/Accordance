@@ -56,6 +56,20 @@ REQUIRED_FOCUS_WIRING = {
     "modules/multi_decision.py": ("多选最优决策", ("collect_focus_seed", "focus_seed")),
     "modules/qimen.py": ("奇门运筹", ("collect_focus_seed", "current=focus_moment")),
 }
+REQUIRED_WEB_FOCUS_WIRING = {
+    "web/templates/feature.html": (
+        "Web 二选一",
+        ('{% if key in ["full", "quick", "item", "decision"] %}', "data-focus-seed", "data-focus-ritual"),
+    ),
+    "web/static/app.js": ("Web 凝神交互", ("completeRunningFocus", "focus_seed")),
+    "web/services.py": (
+        "Web 二选一",
+        (
+            "_option_qi_gua(question, option_a, payload.focus_seed)",
+            "_option_qi_gua(question, option_b, payload.focus_seed)",
+        ),
+    ),
+}
 DETERMINISTIC_NO_FOCUS = {
     "modules/daily_fortune.py": "当日气运",
     "modules/name_divination.py": "姓名起卦",
@@ -97,6 +111,22 @@ def audit_focus_seed_wiring():
     project_root = Path(__file__).resolve().parents[1]
 
     for filename, (feature_name, required_tokens) in REQUIRED_FOCUS_WIRING.items():
+        path = project_root / filename
+        if not path.exists():
+            issues.append(_issue("error", "凝神入口", f"{feature_name}入口文件缺失", filename))
+            continue
+
+        text = path.read_text(encoding="utf-8")
+        missing_tokens = [token for token in required_tokens if token not in text]
+        if missing_tokens:
+            issues.append(_issue(
+                "error",
+                "凝神入口",
+                f"{feature_name}缺少凝神承接",
+                f"{filename} missing={missing_tokens}",
+            ))
+
+    for filename, (feature_name, required_tokens) in REQUIRED_WEB_FOCUS_WIRING.items():
         path = project_root / filename
         if not path.exists():
             issues.append(_issue("error", "凝神入口", f"{feature_name}入口文件缺失", filename))

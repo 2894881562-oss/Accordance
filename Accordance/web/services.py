@@ -432,10 +432,10 @@ def _run_decision(payload, client_id):
     if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not payload.force:
         return _blocked_response(question, duplicate)
 
-    result_a = interpret_hexagram(_option_qi_gua(question, option_a))
+    result_a = interpret_hexagram(_option_qi_gua(question, option_a, payload.focus_seed))
     score_a = _option_score(result_a)
     result_a["_score"] = score_a
-    result_b = interpret_hexagram(_option_qi_gua(question, option_b))
+    result_b = interpret_hexagram(_option_qi_gua(question, option_b, payload.focus_seed))
     score_b = _option_score(result_b)
     result_b["_score"] = score_b
     plain = _plain_decision_conclusion(option_a, score_a, result_a, option_b, score_b, result_b)

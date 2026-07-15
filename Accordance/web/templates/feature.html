@@ -17,6 +17,9 @@
       <label>外应（可选）
         <input name="external_omen" maxlength="160" placeholder="如声音、来人、突发状况等">
       </label>
+    {% endif %}
+
+    {% if key in ["full", "quick", "item", "decision"] %}
       <input name="focus_seed" type="hidden" value="0" data-focus-seed>
       <div class="focus-ritual" data-focus-ritual>
         <div>
