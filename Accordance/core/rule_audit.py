@@ -485,6 +485,16 @@ def audit_history_wiring():
     issues = []
     project_root = Path(__file__).resolve().parents[1]
 
+    history_core_text = (project_root / "core/question_history.py").read_text(encoding="utf-8")
+    path_resolution = history_core_text.split("HISTORY_DISABLED =", 1)[0]
+    if "os.makedirs" in path_resolution:
+        issues.append(_issue(
+            "error",
+            "历史记录",
+            "CLI 历史路径解析不应提前创建目录",
+            "core/question_history.py",
+        ))
+
     for filename, (feature_name, required_tokens) in REQUIRED_HISTORY_WIRING.items():
         path = project_root / filename
         if not path.exists():

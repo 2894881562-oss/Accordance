@@ -23,11 +23,9 @@ import tempfile
 # ═══════════════════════════════════════════════════════════
 
 def _data_dir():
-    """确保 .data 目录存在并返回路径。"""
+    """返回默认数据目录；实际建目录由可容错的保存流程负责。"""
     base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    path = os.path.join(base, ".data")
-    os.makedirs(path, exist_ok=True)
-    return path
+    return os.path.join(base, ".data")
 
 
 def _truthy_env(name):
@@ -43,14 +41,13 @@ def _history_file():
     history_dir = os.environ.get("ACCORDANCE_HISTORY_DIR", "").strip()
     if history_dir:
         path = os.path.abspath(history_dir)
-        os.makedirs(path, exist_ok=True)
         return os.path.join(path, "question_history.json")
 
     return os.path.join(_data_dir(), "question_history.json")
 
 
-HISTORY_FILE = _history_file()
 HISTORY_DISABLED = _truthy_env("ACCORDANCE_HISTORY_DISABLED")
+HISTORY_FILE = _history_file()
 HISTORY_SCHEMA_VERSION = 3
 MAX_HISTORY_ENTRIES = 120
 MAX_HISTORY_BYTES = 96 * 1024

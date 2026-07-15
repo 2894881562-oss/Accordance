@@ -1,5 +1,6 @@
 import datetime
 import io
+import os
 import unittest
 from contextlib import redirect_stdout
 from unittest.mock import Mock, mock_open, patch
@@ -8,6 +9,7 @@ from core.question_history import (
     HISTORY_SCHEMA_VERSION,
     MAX_HISTORY_READ_BYTES,
     QuestionHistory,
+    _history_file,
     _compact_entry,
     _expand_with_synonyms,
     _question_similarity,
@@ -17,6 +19,16 @@ from core.question_history import (
 
 
 class QuestionHistoryTests(unittest.TestCase):
+    def test_history_path_resolution_does_not_create_directories(self):
+        with patch.dict(os.environ, {
+            "ACCORDANCE_HISTORY_FILE": "",
+            "ACCORDANCE_HISTORY_DIR": "relative-history-dir",
+        }), patch("core.question_history.os.makedirs") as make_dirs:
+            path = _history_file()
+
+        self.assertTrue(path.endswith(os.path.join("relative-history-dir", "question_history.json")))
+        make_dirs.assert_not_called()
+
     def test_synonym_normalization_is_single_pass_and_stable(self):
         self.assertEqual(_expand_with_synonyms("赚钱"), "「钱」")
         self.assertEqual(_expand_with_synonyms("赚钱"), _expand_with_synonyms("工资"))
