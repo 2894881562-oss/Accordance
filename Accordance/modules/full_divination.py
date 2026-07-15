@@ -58,7 +58,8 @@ def run_full_divination(prefilled_question=None):
     record_question(
         question, "六爻详占",
         f"{result['gua_name']}（{result['ji_xiong']}），"
-        f"体用：{result.get('tiyong_info', {}).get('relation', '未知')}"
+        f"体用：{result.get('tiyong_info', {}).get('relation', '未知')}",
+        context=f"外应：{external_omen}" if external_omen else "",
     )
 
     if not present_conclusion(result["plain_conclusion"]):

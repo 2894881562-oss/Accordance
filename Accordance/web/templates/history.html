@@ -28,6 +28,9 @@
   {% for item in items %}
     <article class="history-item">
       <strong>[{{ item.m }}] {{ item.q }}</strong>
+      {% if item.c %}
+        <p class="muted">{{ item.c }}</p>
+      {% endif %}
       <p>{{ item.dt }} · {{ item.r }}</p>
     </article>
   {% endfor %}

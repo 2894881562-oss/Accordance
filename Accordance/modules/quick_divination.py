@@ -59,7 +59,8 @@ def run_quick_divination(prefilled_question=None):
         question, "三爻快占",
         f"{three_yao_info['gua_info']['full_name']}卦，"
         f"五行{three_yao_info['gua_info']['element']}，"
-        f"{r['suggest'][:20]}"
+        f"{r['suggest'][:20]}",
+        context=f"外应：{external_omen}" if external_omen else "",
     )
 
     if not present_conclusion(r["plain_conclusion"]):

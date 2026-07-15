@@ -50,11 +50,12 @@ def _history_file():
 
 HISTORY_FILE = _history_file()
 HISTORY_DISABLED = _truthy_env("ACCORDANCE_HISTORY_DISABLED")
-HISTORY_SCHEMA_VERSION = 2
+HISTORY_SCHEMA_VERSION = 3
 MAX_HISTORY_ENTRIES = 120
 MAX_HISTORY_BYTES = 96 * 1024
 MAX_QUESTION_CHARS = 120
 MAX_SUMMARY_CHARS = 120
+MAX_CONTEXT_CHARS = 180
 MAX_MODULE_CHARS = 24
 
 
@@ -415,7 +416,7 @@ def _compact_entry(entry):
             timestamp = time.time()
 
     dt = entry.get("dt") or entry.get("datetime") or datetime.datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
-    return {
+    compacted = {
         "v": HISTORY_SCHEMA_VERSION,
         "q": _truncate_text(entry.get("q") or entry.get("question", ""), MAX_QUESTION_CHARS),
         "m": _truncate_text(entry.get("m") or entry.get("module", ""), MAX_MODULE_CHARS),
@@ -423,6 +424,10 @@ def _compact_entry(entry):
         "dt": dt,
         "r": _truncate_text(entry.get("r") or entry.get("result_summary", ""), MAX_SUMMARY_CHARS),
     }
+    context = _truncate_text(entry.get("c") or entry.get("context", ""), MAX_CONTEXT_CHARS)
+    if context:
+        compacted["c"] = context
+    return compacted
 
 
 def _entry_question(entry):
@@ -439,6 +444,10 @@ def _entry_datetime(entry):
 
 def _entry_result(entry):
     return entry.get("r") or entry.get("result_summary", "无记录")
+
+
+def _entry_context(entry):
+    return entry.get("c") or entry.get("context", "")
 
 
 def _entry_timestamp(entry):
@@ -620,7 +629,7 @@ class QuestionHistory:
 
         return False, None, 0.0, "", 0.0, None
 
-    def add_question(self, question, module_name, result_summary):
+    def add_question(self, question, module_name, result_summary, context=""):
         """记录一次起卦并持久化。"""
         self._ensure_loaded()
         if self._disabled:
@@ -631,6 +640,7 @@ class QuestionHistory:
             "timestamp": time.time(),
             "datetime": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "result_summary": result_summary,
+            "context": context,
         }
         self._history.append(_compact_entry(entry))
         self._history = _compact_history(self._history)
@@ -709,6 +719,7 @@ def build_duplicate_decision(question, module_label, history=None, match_mode="s
     prev_question = _entry_question(matched)
     prev_module = _entry_module(matched)
     prev_result = _entry_result(matched)
+    prev_context = _entry_context(matched)
     elapsed_text = _format_elapsed(days_ago)
     jieqi_days, nearest_jieqi = _days_since_jieqi(now.date())
     jieqi_text = f"距最近节气「{nearest_jieqi}」后约{jieqi_days}天"
@@ -751,6 +762,7 @@ def build_duplicate_decision(question, module_label, history=None, match_mode="s
             "module": prev_module,
             "datetime": prev_dt,
             "result": prev_result,
+            "context": prev_context,
         },
         "message": message,
         "ethics": "初筮告，再三渎，渎则不告。若只是对前次结果不满意而重问，参考价值会降低。",
@@ -810,6 +822,7 @@ def handle_duplicate_check(question, module_label, allow_rephrase=True, match_mo
     prev_question = _entry_question(matched)
     prev_module = _entry_module(matched)
     prev_result = _entry_result(matched)
+    prev_context = _entry_context(matched)
     elapsed_text = _format_elapsed(days_ago)
     jieqi_days, nearest_jieqi = _days_since_jieqi(now.date())
     jieqi_text = f"距最近节气「{nearest_jieqi}」后约{jieqi_days}天"
@@ -821,6 +834,8 @@ def handle_duplicate_check(question, module_label, allow_rephrase=True, match_mo
         print(f"  检测到历史{band['name']}：相似度 {sim_score:.0%}")
         print(f"  您约{elapsed_text}前（{prev_dt}）问过：")
         print(f"    「{prev_question}」")
+        if prev_context:
+            print(f"    资料：{prev_context}")
         print(f"  当前已超过 {band['warn_days']} 天观察窗，气机与事态已有轮转空间，视为新问。")
         print(_sep())
         return True, question
@@ -844,6 +859,8 @@ def handle_duplicate_check(question, module_label, allow_rephrase=True, match_mo
     print(f"    此前时间：{prev_dt}（约{elapsed_text}前）")
     print(f"    此前方式：{prev_module}")
     print(f"    此前结果：{prev_result}")
+    if prev_context:
+        print(f"    此前资料：{prev_context}")
     print(f"    相似度：{sim_score:.0%}")
     print()
     print(f"  ── 时间规则判定 ──")
@@ -930,10 +947,10 @@ def handle_duplicate_check(question, module_label, allow_rephrase=True, match_mo
             print("  输入有误，请重新选择。")
 
 
-def record_question(question, module_label, result_summary):
+def record_question(question, module_label, result_summary, context=""):
     """起卦完成后调用，记录到历史并持久化。"""
     history = get_session_history()
-    recorded = history.add_question(question, module_label, result_summary)
+    recorded = history.add_question(question, module_label, result_summary, context=context)
     if recorded:
         return True
     if getattr(history, "_disabled", False):
@@ -967,6 +984,8 @@ def show_history():
     for i, entry in enumerate(recent, 1):
         dt = _entry_datetime(entry)
         print(f"  {i}. [{_entry_module(entry)}] {_entry_question(entry)}")
+        if _entry_context(entry):
+            print(f"     资料：{_entry_context(entry)}")
         print(f"     └ {dt}  → {_entry_result(entry)}")
     print(_sep())
 

@@ -298,10 +298,23 @@ def _bazi_sections(result):
     ]
 
 
-def _record_if_needed(client_id, question, module_label, summary, should_record=True):
+def _record_if_needed(
+    client_id,
+    question,
+    module_label,
+    summary,
+    should_record=True,
+    context="",
+):
     if not should_record:
         return False
-    return bool(record_question(client_id, question, module_label, summary))
+    return bool(record_question(
+        client_id,
+        question,
+        module_label,
+        summary,
+        context=context,
+    ))
 
 
 def _gate_duplicate(client_id, question, module_label, force, match_mode="semantic"):
@@ -323,6 +336,11 @@ def _blocked_response(question, duplicate):
                 duplicate.get("message", ""),
                 duplicate.get("ethics", ""),
                 f"此前问题：{duplicate.get('matched', {}).get('question', '')}",
+                *(
+                    [f"此前资料：{duplicate.get('matched', {}).get('context', '')}"]
+                    if duplicate.get("matched", {}).get("context")
+                    else []
+                ),
                 f"此前结果：{duplicate.get('matched', {}).get('result', '')}",
             ])
         ],
@@ -364,6 +382,7 @@ def _require_focus_seed(feature_key, focus_seed):
 
 def _run_full(payload, client_id):
     question = _required_text(payload.question, "所问之事")
+    external_omen = _clean(payload.external_omen, limit=160)
     duplicate = _gate_duplicate(client_id, question, "六爻详占", payload.force)
     if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not payload.force:
         return _blocked_response(question, duplicate)
@@ -371,14 +390,20 @@ def _run_full(payload, client_id):
     info = dynamic_time_qi_gua(
         question=question,
         mode="full",
-        extra_text=_clean(payload.external_omen, limit=160),
+        extra_text=external_omen,
         focus_seed=payload.focus_seed,
     )
-    info["external_omen"] = _clean(payload.external_omen, limit=160)
+    info["external_omen"] = external_omen
     result = interpret_hexagram(info)
     sections = [_profile_section(question, "full")] + _hexagram_sections(result)
     summary = f"{result['gua_name']}（{result['ji_xiong']}）"
-    recorded = _record_if_needed(client_id, question, "六爻详占", summary)
+    recorded = _record_if_needed(
+        client_id,
+        question,
+        "六爻详占",
+        summary,
+        context=f"外应：{external_omen}" if external_omen else "",
+    )
     return {
         "plain_conclusion": result["plain_conclusion"],
         "summary": summary,
@@ -391,6 +416,7 @@ def _run_full(payload, client_id):
 
 def _run_quick(payload, client_id):
     question = _required_text(payload.question, "所问之事")
+    external_omen = _clean(payload.external_omen, limit=160)
     duplicate = _gate_duplicate(client_id, question, "三爻快占", payload.force)
     if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not payload.force:
         return _blocked_response(question, duplicate)
@@ -398,14 +424,20 @@ def _run_quick(payload, client_id):
     info = dynamic_three_yao_quick_divination(
         question=question,
         mode="quick",
-        extra_text=_clean(payload.external_omen, limit=160),
+        extra_text=external_omen,
         focus_seed=payload.focus_seed,
     )
-    info["external_omen"] = _clean(payload.external_omen, limit=160)
+    info["external_omen"] = external_omen
     result = interpret_three_yao(info)
     sections = [_profile_section(question, "quick")] + _three_yao_sections(result, info)
     summary = f"{info['gua_info']['full_name']}，{result['suggest']}"
-    recorded = _record_if_needed(client_id, question, "三爻快占", summary)
+    recorded = _record_if_needed(
+        client_id,
+        question,
+        "三爻快占",
+        summary,
+        context=f"外应：{external_omen}" if external_omen else "",
+    )
     return {
         "plain_conclusion": result["plain_conclusion"],
         "summary": summary,
