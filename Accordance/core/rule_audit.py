@@ -73,7 +73,7 @@ REQUIRED_WEB_FOCUS_WIRING = {
     ),
     "web/static/app.js": (
         "Web 凝神交互",
-        ("completeRunningFocus", "focus_seed", "resetFocus", "invalidateFocusForEdit"),
+        ("completeRunningFocus", "focus_seed", "resetFocus", "resetFocusAfterCompletedAnalysis", "invalidateFocusForEdit"),
     ),
     "web/services.py": (
         "Web 二选一与奇门",

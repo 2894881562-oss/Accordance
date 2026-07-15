@@ -130,6 +130,14 @@
     return true;
   }
 
+  function resetFocusAfterCompletedAnalysis(form, target) {
+    const ritual = form.querySelector("[data-focus-ritual]");
+    if (!ritual || target.querySelector(".continue-force")) {
+      return;
+    }
+    resetFocus(ritual, "本次分析已完成；如需再次起卦，请重新默念。");
+  }
+
   function invalidateFocusForEdit(event) {
     const control = event.target.closest("input, textarea, select");
     if (!control || control.matches('[data-focus-seed], input[type="hidden"]')) {
@@ -230,6 +238,7 @@
         return;
       }
       target.innerHTML = html;
+      resetFocusAfterCompletedAnalysis(form, target);
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) {
       if ((form.dataset.revision || "0") === submittedRevision) {
