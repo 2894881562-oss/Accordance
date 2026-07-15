@@ -130,20 +130,23 @@ for _gid, _group in enumerate(SYNONYM_GROUPS):
     for _word in _group:
         _WORD_TO_GROUP[_word] = _gid
 
+_SYNONYM_PATTERN = re.compile(
+    "|".join(re.escape(word) for word in sorted(_WORD_TO_GROUP, key=len, reverse=True))
+)
+
 
 def _expand_with_synonyms(text):
     """
     将文本中的词用其同义词组的代表词替换。
     替换后同一语义的不同表述趋向同一文本。
     """
-    result = text
-    # 按词长降序替换，避免短词误替长词
-    sorted_words = sorted(_WORD_TO_GROUP.keys(), key=len, reverse=True)
-    for word in sorted_words:
-        if word in result:
-            rep = SYNONYM_GROUPS[_WORD_TO_GROUP[word]][0]
-            result = result.replace(word, f"「{rep}」")
-    return result
+    def canonicalize(match):
+        word = match.group(0)
+        representative = SYNONYM_GROUPS[_WORD_TO_GROUP[word]][0]
+        return f"「{representative}」"
+
+    # 单次扫描避免替换结果中的代表词再次被短词规则嵌套替换。
+    return _SYNONYM_PATTERN.sub(canonicalize, text)
 
 
 # ═══════════════════════════════════════════════════════════

@@ -7,12 +7,27 @@ from core.question_history import (
     HISTORY_SCHEMA_VERSION,
     QuestionHistory,
     _compact_entry,
+    _expand_with_synonyms,
+    _question_similarity,
     build_duplicate_decision,
     record_question,
 )
 
 
 class QuestionHistoryTests(unittest.TestCase):
+    def test_synonym_normalization_is_single_pass_and_stable(self):
+        self.assertEqual(_expand_with_synonyms("赚钱"), "「钱」")
+        self.assertEqual(_expand_with_synonyms("赚钱"), _expand_with_synonyms("工资"))
+        self.assertEqual(_expand_with_synonyms("赚钱"), _expand_with_synonyms("钱"))
+
+    def test_similarity_calibration_keeps_objects_distinct(self):
+        self.assertEqual(_question_similarity("项目如何？", "项目如何"), 1.0)
+        self.assertGreaterEqual(
+            _question_similarity("该不该换工作", "要不要跳槽"),
+            0.78,
+        )
+        self.assertLess(_question_similarity("钥匙在哪里", "手机在哪里"), 0.62)
+
     def test_context_does_not_dilute_duplicate_matching(self):
         history = QuestionHistory(history_file="unused-history.json", disabled=False)
         history._loaded = True
