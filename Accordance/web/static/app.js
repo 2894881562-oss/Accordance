@@ -136,6 +136,15 @@
       return;
     }
     const form = control.closest(".ajax-form");
+    if (!form) {
+      return;
+    }
+    form.dataset.revision = String(Number(form.dataset.revision || "0") + 1);
+    const target = document.querySelector(form.dataset.target);
+    if (target && target.childElementCount && target.dataset.stale !== "true") {
+      renderStatus(target, "资料已变更，旧结果已失效，请重新提交。", "muted");
+      target.dataset.stale = "true";
+    }
     const ritual = form?.querySelector("[data-focus-ritual]");
     if (!ritual) {
       return;
@@ -183,6 +192,7 @@
       return;
     }
     const payload = formToObject(form);
+    const submittedRevision = form.dataset.revision || "0";
     if (force) {
       payload.force = true;
     }
@@ -190,6 +200,7 @@
     const wasDisabled = submitButton?.disabled || false;
     form.dataset.submitting = "true";
     target.setAttribute("aria-busy", "true");
+    target.dataset.stale = "false";
     if (submitButton) {
       submitButton.disabled = true;
     }
@@ -209,13 +220,21 @@
           const error = await response.json();
           message = normalizeErrorDetail(error.detail, message);
         } catch (error) {}
-        renderStatus(target, message, "warning");
+        if ((form.dataset.revision || "0") === submittedRevision) {
+          renderStatus(target, message, "warning");
+        }
         return;
       }
-      target.innerHTML = await response.text();
+      const html = await response.text();
+      if ((form.dataset.revision || "0") !== submittedRevision) {
+        return;
+      }
+      target.innerHTML = html;
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) {
-      renderStatus(target, "网络连接失败，请确认服务仍在运行后重试。", "warning");
+      if ((form.dataset.revision || "0") === submittedRevision) {
+        renderStatus(target, "网络连接失败，请确认服务仍在运行后重试。", "warning");
+      }
     } finally {
       form.dataset.submitting = "false";
       target.setAttribute("aria-busy", "false");

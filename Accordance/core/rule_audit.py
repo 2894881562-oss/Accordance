@@ -123,6 +123,9 @@ REQUIRED_WEB_REQUEST_WIRING = {
             'paragraph.setAttribute("role", className === "warning" ? "alert" : "status")',
             'target.setAttribute("aria-busy", "true")',
             'target.setAttribute("aria-busy", "false")',
+            "form.dataset.revision",
+            "submittedRevision",
+            "资料已变更，旧结果已失效，请重新提交。",
         ),
     ),
     "web/templates/feature.html": (
