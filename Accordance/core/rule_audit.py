@@ -71,6 +71,9 @@ REQUIRED_WEB_FOCUS_WIRING = {
         (
             "FOCUS_REQUIRED_FEATURES",
             "_require_focus_seed(feature_key, payload.focus_seed)",
+            "_required_text",
+            "_validate_choice",
+            'raise ValueError("选项 A 与选项 B 不能相同")',
             "_option_qi_gua(question, option_a, payload.focus_seed)",
             "_option_qi_gua(question, option_b, payload.focus_seed)",
             "current=datetime.datetime.now()",

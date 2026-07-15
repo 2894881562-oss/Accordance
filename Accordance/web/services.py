@@ -69,6 +69,19 @@ def _clean(text, default="", limit=200):
     return value[:limit]
 
 
+def _required_text(text, label, limit=200):
+    value = _clean(text, "", limit)
+    if not value:
+        raise ValueError(f"请填写{label}")
+    return value
+
+
+def _validate_choice(value, allowed, label):
+    if value not in allowed:
+        raise ValueError(f"{label}选项无效")
+    return value
+
+
 def _resolve_name_strokes(text, provided, label):
     analysis = analyze_text_strokes(text)
     if provided is not None:
@@ -353,7 +366,7 @@ def _require_focus_seed(feature_key, focus_seed):
 
 
 def _run_full(payload, client_id):
-    question = _clean(payload.question, "未命名问题")
+    question = _required_text(payload.question, "所问之事")
     duplicate = _gate_duplicate(client_id, question, "六爻详占", payload.force)
     if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not payload.force:
         return _blocked_response(question, duplicate)
@@ -380,7 +393,7 @@ def _run_full(payload, client_id):
 
 
 def _run_quick(payload, client_id):
-    question = _clean(payload.question, "未命名问题")
+    question = _required_text(payload.question, "所问之事")
     duplicate = _gate_duplicate(client_id, question, "三爻快占", payload.force)
     if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not payload.force:
         return _blocked_response(question, duplicate)
@@ -407,10 +420,8 @@ def _run_quick(payload, client_id):
 
 
 def _run_name(payload, client_id):
-    xing = _clean(payload.xing, "", 24)
-    ming = _clean(payload.ming, "", 24)
-    if not xing or not ming:
-        raise ValueError("姓名起卦需要填写姓氏和名字")
+    xing = _required_text(payload.xing, "姓氏", 24)
+    ming = _required_text(payload.ming, "名字", 24)
     xing_stroke, xing_source, xing_analysis = _resolve_name_strokes(
         xing,
         payload.xing_stroke,
@@ -493,10 +504,14 @@ def _run_daily(payload, client_id):
 
 
 def _run_item(payload, client_id):
-    item_name = _clean(payload.item_name, "目标物品", 80)
+    item_name = _required_text(payload.item_name, "物品名称", 80)
     last_place = _clean(payload.last_place, "未提供", 120)
     item_feature = _clean(payload.item_feature, "未提供", 120)
-    search_scope = _clean(payload.search_scope, "1", 8)
+    search_scope = _validate_choice(
+        _clean(payload.search_scope, "1", 8),
+        {"1", "2"},
+        "搜索范围",
+    )
     external_omen = _clean(payload.external_omen, "", 160)
     question = f"寻找{item_name}"
     duplicate = _gate_duplicate(client_id, question, "寻物专项占", payload.force)
@@ -544,9 +559,11 @@ def _run_item(payload, client_id):
 
 
 def _run_decision(payload, client_id):
-    question = _clean(payload.question, "未命名问题")
-    option_a = _clean(payload.option_a, "选项A", 120)
-    option_b = _clean(payload.option_b, "选项B", 120)
+    question = _required_text(payload.question, "所问之事")
+    option_a = _required_text(payload.option_a, "选项 A", 120)
+    option_b = _required_text(payload.option_b, "选项 B", 120)
+    if option_a.casefold() == option_b.casefold():
+        raise ValueError("选项 A 与选项 B 不能相同")
     duplicate = _gate_duplicate(client_id, question, "二选一决策", payload.force)
     if duplicate.get("is_duplicate") and duplicate.get("action") in ("block", "warn") and not payload.force:
         return _blocked_response(question, duplicate)
@@ -596,7 +613,7 @@ def _run_decision(payload, client_id):
 
 
 def _run_multi_decision(payload, client_id):
-    question = _clean(payload.question, "未命名问题")
+    question = _required_text(payload.question, "所问之事")
     options = parse_multi_options_text(payload.options_text)
     question_key = f"多选最优：{question}"
     duplicate = _gate_duplicate(
@@ -644,12 +661,14 @@ def _run_multi_decision(payload, client_id):
 def _run_bazi(payload, client_id):
     if payload.birth_hour is None:
         raise ValueError("四柱八字需要填写出生小时")
+    birth_date = _required_text(payload.birth_date, "公历出生日期", 10)
+    gender = _validate_choice(_clean(payload.gender, "", 12), {"", "男", "女"}, "性别")
     birth_minute = payload.birth_minute or 0
     history_question = _bazi_history_question(
-        payload.birth_date,
+        birth_date,
         payload.birth_hour,
         birth_minute,
-        payload.gender,
+        gender,
     )
     duplicate = _gate_duplicate(
         client_id,
@@ -662,10 +681,10 @@ def _run_bazi(payload, client_id):
         return _blocked_response(history_question, duplicate)
 
     result = analyze_bazi_birth(
-        payload.birth_date,
+        birth_date,
         payload.birth_hour,
         birth_minute,
-        payload.gender,
+        gender,
     )
     summary = f"{result['birth']['date']} {result['birth']['time']}：{result['bazi']}"
     record_question(client_id, history_question, "四柱八字", _bazi_history_summary(result))
@@ -680,9 +699,13 @@ def _run_bazi(payload, client_id):
 
 
 def _run_qimen(payload, client_id):
-    topic = _clean(payload.question, "未命名事项")
+    topic = _required_text(payload.question, "所问之事")
     direction = _clean(payload.direction, "", 20)
-    mode = _clean(payload.qimen_mode, "综合", 12)
+    mode = _validate_choice(
+        _clean(payload.qimen_mode, "综合", 12),
+        {"综合", "谈判", "竞争", "财务", "出行", "事业", "学习", "健康"},
+        "场景类型",
+    )
     question_key = f"奇门：{topic}"
     duplicate = _gate_duplicate(
         client_id,
