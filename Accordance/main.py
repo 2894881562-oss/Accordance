@@ -50,8 +50,8 @@ def main_menu():
     print("7. 多选最优决策（多案评分 + 最优详解）")
     print("8. 四柱八字基础分析（十神/强弱/阶段/格局倾向）")
     print("9. 奇门运筹分析（方位/时机/格局/裁决/置信度）")
-    print("10. 查看近期起卦记录")
-    print("11. 清除历史询问记录（谨慎操作）")
+    print("10. 清除历史询问记录（谨慎操作）")
+    print("11. 查看近期起卦记录")
     print("12. 起卦法选择器（按问题推荐入口）")
     print("0. 退出系统")
 
@@ -101,10 +101,10 @@ def main():
             run_qimen_analysis()
 
         elif choice == "10":
-            show_history()
+            clear_history()
 
         elif choice == "11":
-            clear_history()
+            show_history()
 
         elif choice == "12":
             run_method_selector()
@@ -116,5 +116,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 

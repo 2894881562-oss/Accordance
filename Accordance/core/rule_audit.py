@@ -6,6 +6,7 @@
 """
 
 import datetime
+import re
 from pathlib import Path
 
 from config.bagua_data import NUM_TO_GUA_NAME, PALACE_HEXAGRAMS, PALACE_WUXING
@@ -160,6 +161,45 @@ def audit_history_wiring():
                 f"{feature_name}不是具体起卦问事，不建议写入问事历史",
                 filename,
             ))
+
+    main_path = project_root / "main.py"
+    if not main_path.exists():
+        issues.append(_issue("error", "历史记录", "CLI 主菜单文件缺失", "main.py"))
+        return issues
+
+    main_text = main_path.read_text(encoding="utf-8")
+    menu_match = re.search(r"def main_menu\(\):(?P<body>.*?)\ndef main\(\):", main_text, re.DOTALL)
+    if not menu_match:
+        issues.append(_issue("error", "历史记录", "无法识别 CLI 主菜单结构", "main.py"))
+        return issues
+
+    menu_labels = [
+        label
+        for _, label in re.findall(
+            r'^\s*print\("(\d+)\.\s+([^\"]+)"\)\s*$',
+            menu_match.group("body"),
+            re.MULTILINE,
+        )
+    ]
+    expected_tail = [
+        "查看近期起卦记录",
+        "起卦法选择器（按问题推荐入口）",
+        "退出系统",
+    ]
+    if menu_labels[-3:] != expected_tail:
+        issues.append(_issue(
+            "error",
+            "历史记录",
+            "CLI 主菜单尾部顺序发生漂移",
+            f"actual={menu_labels[-3:]} expected={expected_tail}",
+        ))
+    if "清除历史询问记录（谨慎操作）" not in menu_labels[:-3]:
+        issues.append(_issue(
+            "error",
+            "历史记录",
+            "清除历史入口应位于固定尾部菜单之前",
+            str(menu_labels),
+        ))
 
     return issues
 
