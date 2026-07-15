@@ -203,7 +203,13 @@ def history_page(request: Request):
     response = templates.TemplateResponse(
         request=request,
         name="history.html",
-        context={"request": request, "items": data["items"], "stats": stats, "title": "近期记录"},
+        context={
+            "request": request,
+            "items": data["items"],
+            "stats": stats,
+            "title": "近期记录",
+            "cleared": request.query_params.get("cleared") == "1",
+        },
     )
     return _with_client_cookie(response, client_id)
 
@@ -211,8 +217,9 @@ def history_page(request: Request):
 @app.post("/history/clear")
 def history_clear(request: Request):
     client_id = _ensure_client_id(request)
+    _rate_limit(request, client_id)
     clear_history(client_id)
-    response = RedirectResponse("/history", status_code=303)
+    response = RedirectResponse("/history?cleared=1", status_code=303)
     return _with_client_cookie(response, client_id)
 
 

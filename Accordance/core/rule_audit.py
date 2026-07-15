@@ -163,6 +163,18 @@ REQUIRED_WEB_HISTORY_WIRING = {
             "_plain_qimen_conclusion",
         ),
     ),
+    "web/templates/history.html": (
+        "Web 历史清理确认",
+        ('data-confirm-message="只清空当前设备的匿名历史，确认继续？"', "{% if cleared %}"),
+    ),
+    "web/static/app.js": (
+        "Web 历史清理交互",
+        ('event.target.closest("[data-confirm-message]")', "window.confirm"),
+    ),
+    "web/app.py": (
+        "Web 历史清理反馈",
+        ('RedirectResponse("/history?cleared=1", status_code=303)', 'request.query_params.get("cleared") == "1"'),
+    ),
 }
 DETERMINISTIC_NO_HISTORY = {
     "modules/daily_fortune.py": "当日气运",
@@ -268,6 +280,16 @@ def audit_web_request_wiring():
                 "Web 请求",
                 f"{feature_name}缺少统一保护",
                 f"{filename} missing={missing}",
+            ))
+    templates_root = project_root / "web/templates"
+    for path in templates_root.rglob("*.html"):
+        text = path.read_text(encoding="utf-8")
+        if re.search(r"\son[a-z]+\s*=", text, re.IGNORECASE):
+            issues.append(_issue(
+                "error",
+                "Web 请求",
+                "严格内容策略下不应使用内联事件处理器",
+                str(path.relative_to(project_root)),
             ))
     return issues
 

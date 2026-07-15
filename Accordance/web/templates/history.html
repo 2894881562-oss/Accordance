@@ -4,7 +4,10 @@
   <h1>近期起卦记录</h1>
   <p class="muted">仅显示当前匿名设备的记录。不会展示其他访问者的问题或结果。</p>
   <p class="muted">共 {{ stats.total_questions }} 条，上限 {{ stats.max_entries }} 条。</p>
-  <form method="post" action="/history/clear" onsubmit="return confirm('只清空当前设备的匿名历史，确认继续？')">
+  {% if cleared %}
+    <p class="success" role="status">当前设备的匿名历史已清空。</p>
+  {% endif %}
+  <form method="post" action="/history/clear" data-confirm-message="只清空当前设备的匿名历史，确认继续？">
     <button class="secondary" type="submit">清空当前设备记录</button>
   </form>
 </section>

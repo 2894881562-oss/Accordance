@@ -223,6 +223,13 @@
   }
 
   document.addEventListener("submit", function (event) {
+    const confirmForm = event.target.closest("[data-confirm-message]");
+    if (confirmForm) {
+      if (!window.confirm(confirmForm.dataset.confirmMessage)) {
+        event.preventDefault();
+      }
+      return;
+    }
     const form = event.target.closest(".ajax-form");
     if (!form) {
       return;

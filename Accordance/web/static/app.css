@@ -267,6 +267,14 @@ button,
   border-radius: 8px;
 }
 
+.success {
+  padding: 12px;
+  color: #18584f;
+  background: #e8f4f0;
+  border: 1px solid #b9d8cf;
+  border-radius: 8px;
+}
+
 .detail {
   border-top: 1px solid var(--line);
   padding: 12px 0;
